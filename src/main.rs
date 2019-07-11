@@ -14,6 +14,7 @@ use serenity::{
 };
 pub mod channels;
 mod commands;
+const TOKEN: &str = "";
 use crate::commands::{MK_COMMAND, PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND};
 
 group!({
