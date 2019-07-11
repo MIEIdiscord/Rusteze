@@ -16,9 +16,6 @@ mod channels;
 use commands::{
     PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND,
 };
-use channels::{
-    readCourses,
-};
 
 group!({
     name: "pingpong",
@@ -31,7 +28,6 @@ struct Handler;
 impl EventHandler for Handler {}
 
 fn main() {
-    readCourses();
     let mut client = Client::new(TOKEN, Handler).expect("Error creating client");
     client.with_framework(StandardFramework::new()
                           .configure(|c| c.prefix("!"))
