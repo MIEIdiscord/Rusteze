@@ -1,7 +1,8 @@
 use serenity::{
     framework::standard::{
-        help_commands, macros::{group, command, help}, Args, CommandGroup, CommandResult, HelpOptions,
-        StandardFramework,
+        help_commands,
+        macros::{command, group, help},
+        Args, CommandGroup, CommandResult, HelpOptions, StandardFramework,
     },
     model::{
         channel::{Channel, Message},
@@ -11,16 +12,22 @@ use serenity::{
     },
     prelude::*,
 };
-mod commands;
 pub mod channels;
-use crate::commands::{
-    PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND, MKCOURSE_COMMAND,
-};
+mod commands;
+use crate::commands::{MK_COMMAND, PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND};
 
 group!({
     name: "pingpong",
     options: {},
-    commands: [ping, study, unstudy, mkcourse],
+    commands: [ping, study, unstudy],
+});
+
+group!({
+    name: "courses",
+    options: {
+        prefixes: ["courses"],
+    },
+    commands: [mk],
 });
 
 struct Handler;
@@ -29,9 +36,12 @@ impl EventHandler for Handler {}
 
 fn main() {
     let mut client = Client::new(TOKEN, Handler).expect("Error creating client");
-    client.with_framework(StandardFramework::new()
-                          .configure(|c| c.prefix("!"))
-                          .group(&PINGPONG_GROUP));
+    client.with_framework(
+        StandardFramework::new()
+            .configure(|c| c.prefix("%"))
+            .group(&PINGPONG_GROUP)
+            .group(&COURSES_GROUP),
+    );
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);
     }
