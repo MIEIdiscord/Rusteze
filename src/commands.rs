@@ -7,6 +7,7 @@ use serenity::{
     },
     prelude::*,
 };
+use crate::channels::{read_courses, MiEI}; 
 use std::sync::Arc;
 #[command]
 pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
@@ -16,22 +17,35 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 pub fn study(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let o = &mut msg.guild(&ctx.cache).unwrap();
-    let guild = Arc::get_mut(o).unwrap().read();
     let mut p: Vec<&str> = msg.content.split_whitespace().collect();
     p.remove(0);
+    let roles = read_courses()?;
+    let ids = p.iter()
+        .map(|x| roles.get_role_id(x))
+        .filter(|x| x == "")
+        .map(|x| x.parse::<RoleId>().unwrap())
+        .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
-        .map(|mut z| z.add_roles(&ctx.http, 
-                                 p.iter()
-                                    .map(|x| guild.role_by_name(x))
-                                    .filter_map(|x| x.map(|o| RoleId::from(o)))
-                                        .collect::<Vec<RoleId>>()
-                                        .as_slice()));
+        .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()));
         Ok(())
 }
 
 #[command]
 pub fn unstudy(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.member(&ctx.cache).map(|mut x| x.remove_roles(&ctx.http, &msg.mention_roles));
+    let mut p: Vec<&str> = msg.content.split_whitespace().collect();
+    p.remove(0);
+    let roles = read_courses()?;
+    let ids = p.iter()
+        .map(|x| roles.get_role_id(x))
+        .filter(|x| x == "")
+        .map(|x| x.parse::<RoleId>().unwrap())
+        .collect::<Vec<RoleId>>();
+    msg.member(&ctx.cache)
+        .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()));
+        Ok(())
+}
+
+#[command]
+pub fn mkcourse(ctx: &mut Context, msg: &Message) -> CommandResult {
     Ok(())
 }

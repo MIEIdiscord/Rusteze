@@ -12,15 +12,15 @@ use serenity::{
     prelude::*,
 };
 mod commands;
-mod channels;
-use commands::{
-    PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND,
+pub mod channels;
+use crate::commands::{
+    PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND, MKCOURSE_COMMAND,
 };
 
 group!({
     name: "pingpong",
     options: {},
-    commands: [ping, study, unstudy],
+    commands: [ping, study, unstudy, mkcourse],
 });
 
 struct Handler;

@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use serenity::model::id::GuildId;
+use serenity::prelude::Context;
 use std::io;
 use std::io::Write;
 use std::fs;
@@ -17,6 +19,36 @@ impl MiEI {
         file.write_all(str.as_bytes())?;
         file.sync_all()?;
         Ok(())
+    }
+
+    pub fn get_role_id(&self, role_name: &str) -> String {
+        let role_id = &self.courses.values()
+            .map(|x| x.courses.get(role_name))
+            .filter(|x| x.is_some())
+            .take(1)
+            .collect::<Vec<Option<&Course>>>()
+            .pop()
+            .unwrap_or(None)
+            .map(|x| x.role.to_string())
+            .unwrap_or(String::from(""));
+        role_id.to_string()
+    }
+
+    fn role_exists(&self, role_name: &String) -> bool {
+        self.courses.values()
+            .map(|x| x.courses.get(role_name))
+            .any(|x| x.is_some())
+    }
+
+    pub fn create_role(&self, ctx: Context, guild: GuildId, roles: Vec<String>) -> Vec<String> {
+        let new_roles = roles.iter().filter(|x| self.role_exists(x))
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>();
+        let created_roles = new_roles.iter().map(|x| guild.create_role(&ctx.http, |z| z.hoist(false)
+                                                               .mentionable(true)
+                                                               .name(x)));
+
+        new_roles
     }
 }
 
@@ -39,4 +71,3 @@ pub fn read_courses() -> io::Result<MiEI> {
     let db = serde_json::from_str::<MiEI>(&str).unwrap();
     Ok(db)
 }
-
