@@ -15,20 +15,12 @@ use serenity::{
 pub mod channels;
 mod commands;
 const TOKEN: &str = "";
-use crate::commands::{MK_COMMAND, PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND};
+use crate::commands::{PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND};
 
 group!({
     name: "pingpong",
     options: {},
     commands: [ping, study, unstudy],
-});
-
-group!({
-    name: "courses",
-    options: {
-        prefixes: ["courses"],
-    },
-    commands: [mk],
 });
 
 struct Handler;
@@ -40,8 +32,7 @@ fn main() {
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("%"))
-            .group(&PINGPONG_GROUP)
-            .group(&COURSES_GROUP),
+            .group(&PINGPONG_GROUP),
     );
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);

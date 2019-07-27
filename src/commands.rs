@@ -17,8 +17,6 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 pub fn study(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    //let mut p: Vec<&str> = msg.content.split_whitespace().collect();
-    //p.remove(0);
     let roles = read_courses()?;
     let ids = args
         .iter::<String>()
@@ -27,7 +25,6 @@ pub fn study(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
         .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
         .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()));
-    msg.channel_id.say(&ctx.http, "Pong but in rust!")?;
     Ok(())
 }
 
@@ -41,12 +38,5 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
         .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
         .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()));
-    msg.channel_id.say(&ctx.http, "Pong but in rust!")?;
-    Ok(())
-}
-
-#[command]
-pub fn mk(ctx: &mut Context, msg: &Message) -> CommandResult {
-    println!("ree");
     Ok(())
 }
