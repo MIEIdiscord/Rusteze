@@ -6,6 +6,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::{BufWriter, BufReader};
+use regex::Regex;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -25,11 +26,20 @@ impl MiEI {
     }
 
     pub fn get_role_id(&self, role_name: &str) -> Vec<RoleId> {
-        self.courses
-            .values()
-            .filter_map(|x| x.courses.get(role_name))
+        let years = &self.courses;
+        let year = Regex::new("ano")
+            .unwrap()
+            .split(role_name)
+            .next()
+            .unwrap();
+        let course = self.courses.get(year);
+        match course {
+            Some(x) => x.courses.values().collect::<Vec<&Course>>(),
+            None => years.values().filter_map(|x| x.courses.get(role_name)).collect::<Vec<&Course>>(),
+        }
+            .iter()
             .map(|x| x.role.parse::<RoleId>().unwrap())
-            .collect::<Vec<RoleId>>()
+                .collect::<Vec<RoleId>>()
     }
 
     fn role_exists(&self, role_name: &str) -> bool {
