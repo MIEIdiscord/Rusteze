@@ -24,12 +24,12 @@ impl MiEI {
         Ok(())
     }
 
-    pub fn get_role_id(&self, role_name: &str) -> Option<RoleId> {
+    pub fn get_role_id(&self, role_name: &str) -> Vec<RoleId> {
         self.courses
             .values()
             .filter_map(|x| x.courses.get(role_name))
-            .next()
             .map(|x| x.role.parse::<RoleId>().unwrap())
+            .collect::<Vec<RoleId>>()
     }
 
     fn role_exists(&self, role_name: &str) -> bool {

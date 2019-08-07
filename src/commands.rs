@@ -21,7 +21,8 @@ pub fn study(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult 
     let ids = args
         .iter::<String>()
         .filter_map(Result::ok)
-        .filter_map(|x| roles.get_role_id(&x))
+        .map(|x| roles.get_role_id(&x))
+        .flatten()
         .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
         .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
@@ -35,7 +36,8 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let ids = args
         .iter::<String>()
         .filter_map(Result::ok)
-        .filter_map(|x| roles.get_role_id(&x))
+        .map(|x| roles.get_role_id(&x))
+        .flatten()
         .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
         .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
