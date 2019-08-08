@@ -27,8 +27,8 @@ impl MiEI {
 
     pub fn get_role_id(&self, role_name: &str) -> Vec<RoleId> {
         let years = &self.courses;
-        let regex = Regex::new("([0-9]+)ano([0-9]+)(semestre|sem)").unwrap();
-        let year_regex = Regex::new("([0-9])+ano").unwrap();
+        let regex = Regex::new("([0-9]+)ANO([0-9]+)(SEMESTRE|SEM)").unwrap();
+        let year_regex = Regex::new("([0-9])+ANO").unwrap();
         if regex.is_match(role_name) {
             let splits = regex.captures(role_name).unwrap();
             match years.get(&splits[1]) {
