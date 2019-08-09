@@ -27,16 +27,18 @@ impl MiEI {
 
     pub fn get_role_id(&self, role_name: &str) -> Vec<RoleId> {
         let years = &self.courses;
-        let regex = Regex::new("([0-9]+)ANO([0-9]+)(SEMESTRE|SEM)").unwrap();
-        let year_regex = Regex::new("([0-9])+ANO").unwrap();
-        if regex.is_match(role_name) {
-            let splits = regex.captures(role_name).unwrap();
+        lazy_static! {
+            static ref REGEX: Regex = Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap();
+            static ref YEAR_REGEX: Regex = Regex::new("([0-9])+ANO").unwrap();
+        };
+        if REGEX.is_match(role_name) {
+            let splits = REGEX.captures(role_name).unwrap();
             match years.get(&splits[1]) {
                 Some(x) => x.get_semester_roles(&splits[2]),
                 None => Vec::new(),
             }
-        } else if year_regex.is_match(role_name) {
-            let splits = year_regex.captures(role_name).unwrap();
+        } else if YEAR_REGEX.is_match(role_name) {
+            let splits = YEAR_REGEX.captures(role_name).unwrap();
             match years.get(&splits[1]) {
                 Some(x) => x.get_year_roles(),
                 None => Vec::new(),
@@ -44,7 +46,7 @@ impl MiEI {
         } else {
             years
                 .values()
-                .flat_map(|x| x.get_role(role_name))
+                .flat_map(|x| x.get_role(&role_name.to_uppercase()))
                 .collect::<Vec<RoleId>>()
         }
     }
