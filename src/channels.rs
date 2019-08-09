@@ -29,16 +29,14 @@ impl MiEI {
         let years = &self.courses;
         lazy_static! {
             static ref REGEX: Regex = Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap();
-            static ref YEAR_REGEX: Regex = Regex::new("([0-9])+ANO").unwrap();
+            static ref YEAR_REGEX: Regex = Regex::new("([0-9])+((?i)ano)").unwrap();
         };
-        if REGEX.is_match(role_name) {
-            let splits = REGEX.captures(role_name).unwrap();
+        if let Some(splits) = REGEX.captures(role_name) {
             match years.get(&splits[1]) {
                 Some(x) => x.get_semester_roles(&splits[2]),
                 None => Vec::new(),
             }
-        } else if YEAR_REGEX.is_match(role_name) {
-            let splits = YEAR_REGEX.captures(role_name).unwrap();
+        } else if let Some(splits) = YEAR_REGEX.captures(role_name) {
             match years.get(&splits[1]) {
                 Some(x) => x.get_year_roles(),
                 None => Vec::new(),

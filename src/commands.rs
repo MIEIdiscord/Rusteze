@@ -36,7 +36,7 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResul
     let ids = args
         .iter::<String>()
         .filter_map(Result::ok)
-        .map(|x| roles.get_role_id(&x.to_uppercase()))
+        .map(|x| roles.get_role_id(&x))
         .flatten()
         .collect::<Vec<RoleId>>();
     msg.member(&ctx.cache)
