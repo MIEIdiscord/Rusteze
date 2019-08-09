@@ -12,6 +12,8 @@ use serenity::{
     },
     prelude::*,
 };
+#[macro_use] extern crate lazy_static;
+
 pub mod channels;
 mod commands;
 const TOKEN: &str = "";
