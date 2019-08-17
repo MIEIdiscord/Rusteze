@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use serenity::{
     framework::standard::{
         help_commands,

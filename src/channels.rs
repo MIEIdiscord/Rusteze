@@ -60,7 +60,7 @@ impl MiEI {
             .filter(|x| self.role_exists(x))
             .map(|x| x.to_string())
             .collect::<Vec<String>>();
-        let created_roles = new_roles
+        let _created_roles = new_roles
             .iter()
             .map(|x| guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(x)));
         new_roles

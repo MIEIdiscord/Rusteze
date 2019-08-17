@@ -1,9 +1,8 @@
-use crate::channels::{read_courses, MiEI};
+use crate::channels::{read_courses};
 use serenity::{
     framework::standard::{macros::command, Args, CommandResult},
     model::{
-        channel::{Channel, Message},
-        guild::Role,
+        channel::{Message},
         id::RoleId,
     },
     prelude::*,
