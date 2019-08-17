@@ -25,7 +25,7 @@ impl MiEI {
         Ok(())
     }
 
-    pub fn get_role_id(&self, role_name: &str) -> Vec<(String,RoleId)> {
+    pub fn get_role_id<'a>(&'a self, role_name: &'a str) -> Vec<(&'a str,RoleId)> {
         let years = &self.courses;
         lazy_static! {
             static ref REGEX: Regex = Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap();
@@ -45,7 +45,8 @@ impl MiEI {
             years
                 .values()
                 .flat_map(|x| x.get_role(&role_name.to_uppercase()))
-                .collect::<Vec<(String,RoleId)>>()
+                .map(|x| (role_name, x))
+                .collect::<Vec<(&str,RoleId)>>()
         }
     }
 
@@ -79,26 +80,26 @@ impl Year {
             .any(|x| x.courses.contains_key(role_name))
     }
 
-    fn get_semester_roles(&self, semester: &str) -> Vec<(String,RoleId)> {
+    fn get_semester_roles(&self, semester: &str) -> Vec<(&str,RoleId)> {
         match self.courses.get(semester) {
-            Some(x) => x.courses.iter().map(|(a,z)| (a.to_owned(), z.role)).collect::<Vec<(String,RoleId)>>(),
+            Some(x) => x.courses.iter().map(|(a,z)| (a.as_str(), z.role)).collect::<Vec<(&str,RoleId)>>(),
             None => Vec::new(),
         }
     }
 
-    fn get_year_roles(&self) -> Vec<(String,RoleId)> {
+    fn get_year_roles(&self) -> Vec<(&str,RoleId)> {
         self.courses
             .values()
-            .flat_map(|x| x.courses.iter().map(|(a,z)| (a.to_owned(),z.role)))
-            .collect::<Vec<(String,RoleId)>>()
+            .flat_map(|x| x.courses.iter().map(|(a,z)| (a.as_str(), z.role)))
+            .collect::<Vec<(&str,RoleId)>>()
     }
 
-    fn get_role(&self, role_name: &str) -> Vec<(String, RoleId)> {
+    fn get_role<'a>(&self, role_name: &'a str) -> Option<RoleId> {
         self.courses
             .values()
             .filter_map(|x| x.courses.get(role_name))
-            .map(|x| (role_name.to_owned(), x.role))
-            .collect::<Vec<(String,RoleId)>>()
+            .map(|x| x.role)
+            .next()
     }
 }
 
