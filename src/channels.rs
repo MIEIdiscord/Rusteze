@@ -1,7 +1,6 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serenity::model::id::{ChannelId, GuildId, RoleId};
-use serenity::prelude::Context;
+use serenity::model::id::{ChannelId, RoleId};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -50,6 +49,7 @@ impl MiEI {
         }
     }
 
+    #[allow(dead_code)]
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
