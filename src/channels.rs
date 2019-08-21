@@ -53,18 +53,6 @@ impl MiEI {
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
-
-    pub fn create_role(&self, ctx: Context, guild: GuildId, roles: Vec<String>) -> Vec<String> {
-        let new_roles = roles
-            .iter()
-            .filter(|x| self.role_exists(x))
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>();
-        let _created_roles = new_roles
-            .iter()
-            .map(|x| guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(x)));
-        new_roles
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
