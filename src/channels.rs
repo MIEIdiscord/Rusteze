@@ -1,7 +1,6 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serenity::model::id::{ChannelId, GuildId, RoleId};
-use serenity::prelude::Context;
+use serenity::model::id::{ChannelId, RoleId};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -25,7 +24,7 @@ impl MiEI {
         Ok(())
     }
 
-    pub fn get_role_id(&self, role_name: &str) -> Vec<RoleId> {
+    pub fn get_role_id<'a>(&'a self, role_name: &'a str) -> Vec<(&'a str,RoleId)> {
         let years = &self.courses;
         lazy_static! {
             static ref REGEX: Regex = Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap();
@@ -45,24 +44,14 @@ impl MiEI {
             years
                 .values()
                 .flat_map(|x| x.get_role(&role_name.to_uppercase()))
-                .collect::<Vec<RoleId>>()
+                .map(|x| (role_name, x))
+                .collect::<Vec<(&str,RoleId)>>()
         }
     }
 
+    #[allow(dead_code)]
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
-    }
-
-    pub fn create_role(&self, ctx: Context, guild: GuildId, roles: Vec<String>) -> Vec<String> {
-        let new_roles = roles
-            .iter()
-            .filter(|x| self.role_exists(x))
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>();
-        let created_roles = new_roles
-            .iter()
-            .map(|x| guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(x)));
-        new_roles
     }
 }
 
@@ -79,26 +68,26 @@ impl Year {
             .any(|x| x.courses.contains_key(role_name))
     }
 
-    fn get_semester_roles(&self, semester: &str) -> Vec<RoleId> {
+    fn get_semester_roles(&self, semester: &str) -> Vec<(&str,RoleId)> {
         match self.courses.get(semester) {
-            Some(x) => x.courses.values().map(|z| z.role).collect::<Vec<RoleId>>(),
+            Some(x) => x.courses.iter().map(|(a,z)| (a.as_str(), z.role)).collect::<Vec<(&str,RoleId)>>(),
             None => Vec::new(),
         }
     }
 
-    fn get_year_roles(&self) -> Vec<RoleId> {
+    fn get_year_roles(&self) -> Vec<(&str,RoleId)> {
         self.courses
             .values()
-            .flat_map(|x| x.courses.values().map(|z| z.role))
-            .collect::<Vec<RoleId>>()
+            .flat_map(|x| x.courses.iter().map(|(a,z)| (a.as_str(), z.role)))
+            .collect::<Vec<(&str,RoleId)>>()
     }
 
-    fn get_role(&self, role_name: &str) -> Vec<RoleId> {
+    fn get_role<'a>(&self, role_name: &'a str) -> Option<RoleId> {
         self.courses
             .values()
             .filter_map(|x| x.courses.get(role_name))
             .map(|x| x.role)
-            .collect::<Vec<RoleId>>()
+            .next()
     }
 }
 
