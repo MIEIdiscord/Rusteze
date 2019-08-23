@@ -1,11 +1,12 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serenity::model::id::{ChannelId, RoleId};
+use serenity::model::{id::{ChannelId, RoleId, GuildId}, channel::{ChannelType, PermissionOverwriteType::Role, PermissionOverwrite}, permissions::Permissions};
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
 use std::io::{BufReader, BufWriter};
+use serenity::prelude::{Context};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -49,7 +50,32 @@ impl MiEI {
         }
     }
 
-    #[allow(dead_code)]
+    pub fn create_role<'a>(&self, ctx: &Context, year: &str, semester: &str, course: &'a str, guild: GuildId) -> Option<&'a str> {
+    let upper_course = course.to_uppercase();
+       if self.role_exists(&upper_course) {
+            None
+       }
+       else {
+            let role = guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(upper_course)).unwrap();
+            let mut perms = Vec::new();
+            perms.push(PermissionOverwrite {allow: Permissions::empty(), 
+                deny: Permissions::READ_MESSAGES, 
+                kind: Role(guild.as_u64().to_owned().into())});
+            perms.push(PermissionOverwrite {allow: Permissions::READ_MESSAGES,
+                    deny: Permissions::empty(),
+                    kind: Role(role.id)});
+            let category = guild.create_channel(&ctx, |c| c.name(course).kind(ChannelType::Category)
+                                                .permissions(perms)).unwrap();
+            let anexos = guild.create_channel(&ctx, |c| c.name(format!("anexos-{}", course))
+                                              .kind(ChannelType::Text)
+                                              .category(category.id));
+            let duvidas = guild.create_channel(&ctx, |c| c.name(format!("duvidas-{}", course))
+                                               .kind(ChannelType::Text)
+                                               .category(category.id));
+            Some(course)
+       }
+    }
+
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }

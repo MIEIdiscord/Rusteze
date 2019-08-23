@@ -10,6 +10,7 @@ use serenity::{
         gateway::Ready,
         id::{GuildId, UserId},
         voice::VoiceState,
+        permissions::Permissions,
     },
     prelude::*,
 };
@@ -18,12 +19,20 @@ use serenity::{
 pub mod channels;
 mod commands;
 const TOKEN: &str = "";
-use crate::commands::{PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND};
+use crate::commands::{PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND, MK_COMMAND};
 
 group!({
     name: "pingpong",
     options: {},
     commands: [ping, study, unstudy],
+});
+
+group!({
+    name: "courses",
+    options: {
+        prefixes: ["courses"],
+    },
+    commands: [mk],
 });
 
 struct Handler;
@@ -35,7 +44,8 @@ fn main() {
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("%"))
-            .group(&PINGPONG_GROUP),
+            .group(&PINGPONG_GROUP)
+            .group(&COURSES_GROUP),
     );
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);

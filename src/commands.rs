@@ -56,3 +56,26 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     msg.channel_id.say(&ctx.http, format!("Stoped Studying: {}", names.join(" ")))?;
     Ok(())
 }
+
+#[command]
+pub fn mk(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    if args.len() < 3 {
+        msg.channel_id.say(&ctx.http, "Não foram criadas novas cadeiras")?;
+    }
+    else {
+        let roles = read_courses()?;
+        let year = args.single::<String>();
+        let semester = args.single::<String>();
+        if let (Ok(y), Ok(s), Some(g)) = (year, semester, msg.guild_id) {
+            let new_roles = args.raw()
+                .skip(2)
+                .filter_map(|x| roles.create_role(ctx, &y, &s, x, g))
+                .collect::<Vec<&str>>();
+            msg.channel_id.say(&ctx.http, format!("Cadeiras criadas: {}", new_roles.join(" ")))?;
+        }
+        else {
+            msg.channel_id.say(&ctx.http, "Não foram criadas novas cadeiras")?;
+        }
+    };
+    Ok(())
+}
