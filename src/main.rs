@@ -30,6 +30,7 @@ group!({
 group!({
     name: "courses",
     options: {
+        required_permissions: [ADMINISTRATOR],
         prefixes: ["courses"],
     },
     commands: [mk],
