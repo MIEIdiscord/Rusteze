@@ -14,7 +14,6 @@ pub struct MiEI {
 }
 
 impl MiEI {
-    #[allow(dead_code)]
     fn write_courses(&self) -> Result<(), io::Error> {
         let file = OpenOptions::new()
             .write(true)
@@ -50,29 +49,46 @@ impl MiEI {
         }
     }
 
-    pub fn create_role<'a>(&self, ctx: &Context, _year: &str, _semester: &str, course: &'a str, guild: GuildId) -> Option<&'a str> {
+    pub fn create_role<'a>(&mut self, ctx: &Context, year: &str, semester: &str, course: &'a str, guild: GuildId) -> Option<&'a str> {
     let upper_course = course.to_uppercase();
        if self.role_exists(&upper_course) {
             None
        }
        else {
-            let role = guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(upper_course)).unwrap();
+            let role = guild.create_role(&ctx.http, |z| z.hoist(false).mentionable(true).name(&upper_course)).unwrap();
             let perms = vec![PermissionOverwrite {allow: Permissions::empty(), 
                 deny: Permissions::READ_MESSAGES, 
                 kind: Role(guild.as_u64().to_owned().into())},
             PermissionOverwrite {allow: Permissions::READ_MESSAGES,
                     deny: Permissions::empty(),
                     kind: Role(role.id)}];
-            let category = guild.create_channel(&ctx, |c| c.name(course).kind(ChannelType::Category)
+            let category = guild.create_channel(&ctx, |c| c.name(&upper_course).kind(ChannelType::Category)
                                                 .permissions(perms)).unwrap();
-            let _anexos = guild.create_channel(&ctx, |c| c.name(format!("anexos-{}", course))
+            let anexos = guild.create_channel(&ctx, |c| c.name(format!("anexos-{}", &upper_course))
                                               .kind(ChannelType::Text)
-                                              .category(category.id));
-            let _duvidas = guild.create_channel(&ctx, |c| c.name(format!("duvidas-{}", course))
+                                              .category(category.id)).unwrap();
+            let duvidas = guild.create_channel(&ctx, |c| c.name(format!("duvidas-{}", &upper_course))
                                                .kind(ChannelType::Text)
-                                               .category(category.id));
+                                               .category(category.id)).unwrap();
+            let courses = Course {role: role.id, channels: vec![category.id, anexos.id, duvidas.id]};
+            self.add_role(&upper_course, courses, semester, year);
+            match self.write_courses() {
+                Ok(()) => (),
+                Err(b) => panic!("{}", b),
+            };
             Some(course)
        }
+    }
+    
+    fn add_role(&mut self, role_name: &str, course: Course, semester: &str, year: &str) {
+        if let Some(y) = self.courses.get_mut(year) {
+            y.add_role(role_name, course, semester);
+        }
+        else {
+            let mut yr = Year {courses: HashMap::new()};
+            yr.add_role(role_name, course, semester);
+            self.courses.insert(year.to_string(), yr);
+        }
     }
 
     fn role_exists(&self, role_name: &str) -> bool {
@@ -113,6 +129,17 @@ impl Year {
             .filter_map(|x| x.courses.get(role_name))
             .map(|x| x.role)
             .next()
+    }
+
+    fn add_role(&mut self, role_name: &str, course: Course, semester: &str) {
+        if let Some(s) = self.courses.get_mut(semester) {
+            s.courses.insert(role_name.to_string(), course);
+        }
+        else {
+            let mut sem = Semester {courses: HashMap::new()};
+            sem.courses.insert(role_name.to_string(), course);
+            self.courses.insert(semester.to_string(), sem);
+        }
     }
 }
 

@@ -63,7 +63,7 @@ pub fn mk(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         msg.channel_id.say(&ctx.http, "Não foram criadas novas cadeiras")?;
     }
     else {
-        let roles = read_courses()?;
+        let mut roles = read_courses()?;
         let year = args.single::<String>();
         let semester = args.single::<String>();
         if let (Ok(y), Ok(s), Some(g)) = (year, semester, msg.guild_id) {
