@@ -9,32 +9,18 @@ use serenity::{
         channel::{Channel, Message},
         gateway::Ready,
         id::{GuildId, UserId},
-        voice::VoiceState,
         permissions::Permissions,
+        voice::VoiceState,
     },
     prelude::*,
 };
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod channels;
 mod commands;
 const TOKEN: &str = "";
-use crate::commands::{PING_COMMAND, STUDY_COMMAND, UNSTUDY_COMMAND, MK_COMMAND};
-
-group!({
-    name: "pingpong",
-    options: {},
-    commands: [ping, study, unstudy],
-});
-
-group!({
-    name: "courses",
-    options: {
-        required_permissions: [ADMINISTRATOR],
-        prefixes: ["courses"],
-    },
-    commands: [mk],
-});
+use crate::commands::{COURSES_GROUP, STUDY_GROUP};
 
 struct Handler;
 
@@ -45,7 +31,7 @@ fn main() {
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("%"))
-            .group(&PINGPONG_GROUP)
+            .group(&STUDY_GROUP)
             .group(&COURSES_GROUP),
     );
     if let Err(why) = client.start() {
