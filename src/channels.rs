@@ -81,14 +81,9 @@ impl MiEI {
     }
     
     fn add_role(&mut self, role_name: &str, course: Course, semester: &str, year: &str) {
-        if let Some(y) = self.courses.get_mut(year) {
-            y.add_role(role_name, course, semester);
-        }
-        else {
-            let mut yr = Year {courses: HashMap::new()};
-            yr.add_role(role_name, course, semester);
-            self.courses.insert(year.to_string(), yr);
-        }
+        self.courses.entry(year.to_string())
+            .or_insert(Year {courses: HashMap::new()})
+            .add_role(role_name, course, semester);
     }
 
     fn role_exists(&self, role_name: &str) -> bool {
@@ -132,14 +127,10 @@ impl Year {
     }
 
     fn add_role(&mut self, role_name: &str, course: Course, semester: &str) {
-        if let Some(s) = self.courses.get_mut(semester) {
-            s.courses.insert(role_name.to_string(), course);
-        }
-        else {
-            let mut sem = Semester {courses: HashMap::new()};
-            sem.courses.insert(role_name.to_string(), course);
-            self.courses.insert(semester.to_string(), sem);
-        }
+        self.courses.entry(semester.to_string())
+            .or_insert(Semester {courses: HashMap::new()})
+            .courses
+            .insert(role_name.to_string(), course);
     }
 }
 
