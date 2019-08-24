@@ -1,6 +1,9 @@
 use crate::channels::read_courses;
 use serenity::{
-    framework::standard::{macros::command, Args, CommandResult},
+    framework::standard::{
+        macros::{command, group},
+        Args, CommandResult,
+    },
     model::{channel::Message, id::RoleId},
     prelude::*,
 };
