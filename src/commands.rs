@@ -52,8 +52,13 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
         .transpose()?;
 
-    msg.channel_id
-        .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
+    if names.is_empty() {
+        msg.channel_id
+            .say(&ctx.http, "Não foste adicionado a nenhuma cadeira nova")?;
+    } else {
+        msg.channel_id
+            .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
+    }
     Ok(())
 }
 
@@ -73,35 +78,37 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     msg.member(&ctx.cache)
         .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
         .transpose()?;
-
-    msg.channel_id
-        .say(&ctx.http, format!("Stoped Studying: {}", names.join(" ")))?;
+    if names.is_empty() {
+        msg.channel_id
+            .say(&ctx.http, "Não foste removido de nenhuma cadeira")?;
+    } else {
+        msg.channel_id
+            .say(&ctx.http, format!("Stoped Studying: {}", names.join(" ")))?;
+    }
     Ok(())
 }
 
 #[command]
+#[min_args(3)]
 pub fn mk(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    if args.len() < 3 {
-        msg.channel_id
-            .say(&ctx.http, "Não foram criadas novas cadeiras")?;
-    } else {
-        let mut roles = read_courses()?;
-        let year = args.single::<String>();
-        let semester = args.single::<String>();
-        if let (Ok(y), Ok(s), Some(g)) = (year, semester, msg.guild_id) {
-            let new_roles = args
-                .raw()
-                .skip(2)
-                .filter_map(|x| roles.create_role(ctx, &y, &s, x, g))
-                .collect::<Vec<&str>>();
+    let mut roles = read_courses()?;
+    let year = args.single::<String>();
+    let semester = args.single::<String>();
+    if let (Ok(y), Ok(s), Some(g)) = (year, semester, msg.guild_id) {
+        let new_roles = args
+            .raw()
+            .skip(2)
+            .filter_map(|x| roles.create_role(ctx, &y, &s, x, g))
+            .collect::<Vec<&str>>();
+        if new_roles.is_empty() {
+            msg.channel_id
+                .say(&ctx.http, "Não foram criadas novas cadeiras")?;
+        } else {
             msg.channel_id.say(
                 &ctx.http,
                 format!("Cadeiras criadas: {}", new_roles.join(" ")),
             )?;
-        } else {
-            msg.channel_id
-                .say(&ctx.http, "Não foram criadas novas cadeiras")?;
         }
-    };
+    }
     Ok(())
 }
