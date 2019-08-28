@@ -90,14 +90,13 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 #[min_args(3)]
-pub fn mk(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let mut roles = read_courses()?;
-    let year = args.single::<String>();
-    let semester = args.single::<String>();
-    if let (Ok(y), Ok(s), Some(g)) = (year, semester, msg.guild_id) {
-        let new_roles = args
-            .raw()
-            .skip(2)
+    let mut iter = args.raw();
+    let year = iter.next();
+    let semester = iter.next();
+    if let (Some(y), Some(s), Some(g)) = (year, semester, msg.guild_id) {
+        let new_roles = iter
             .filter_map(|x| roles.create_role(ctx, &y, &s, x, g))
             .collect::<Vec<&str>>();
         if new_roles.is_empty() {
