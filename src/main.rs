@@ -14,12 +14,12 @@ use serenity::{
     },
     prelude::*,
 };
+use std::fs;
 #[macro_use]
 extern crate lazy_static;
 
 pub mod channels;
 mod commands;
-const TOKEN: &str = "";
 use crate::commands::{COURSES_GROUP, STUDY_GROUP};
 
 struct Handler;
@@ -27,7 +27,8 @@ struct Handler;
 impl EventHandler for Handler {}
 
 fn main() {
-    let mut client = Client::new(TOKEN, Handler).expect("Error creating client");
+    let token = fs::read_to_string("auth").expect("No auth file");
+    let mut client = Client::new(token, Handler).expect("Error creating client");
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("%"))
