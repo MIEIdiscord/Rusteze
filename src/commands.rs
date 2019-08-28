@@ -1,3 +1,5 @@
+pub mod admin;
+
 use crate::channels::read_courses;
 use serenity::{
     framework::standard::{

@@ -7,6 +7,8 @@ use serenity::model::{
 };
 use serenity::framework::standard::CommandResult;
 use serenity::prelude::Context;
+use lazy_static::lazy_static;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
