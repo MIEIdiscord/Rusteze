@@ -27,7 +27,7 @@ struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, _ready: Ready) {
-        ctx.set_presence(Some(Activity::playing("$man man")), OnlineStatus::Online);
+        ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online);
         println!("Up and running");
         if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
             ChannelId::from(**id)
