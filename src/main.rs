@@ -4,10 +4,10 @@ mod commands;
 use serenity::{
     framework::standard::StandardFramework,
     model::{
-        gateway::{Ready, Activity},
-        id::{GuildId, ChannelId},
+        gateway::{Activity, Ready},
         guild::Member,
-        user::OnlineStatus
+        id::{ChannelId, GuildId},
+        user::OnlineStatus,
     },
     prelude::*,
     utils::Colour,
@@ -15,7 +15,7 @@ use serenity::{
 use std::fs;
 use std::sync::Arc;
 
-use crate::commands::{COURSES_GROUP, STUDY_GROUP, admin::ADMIN_GROUP};
+use crate::commands::{admin::ADMIN_GROUP, COURSES_GROUP, STUDY_GROUP};
 
 struct UpdateNotify;
 
@@ -27,7 +27,7 @@ struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, _ready: Ready) {
-        ctx.set_presence(Some(Activity::playing("$man man")),OnlineStatus::Online);
+        ctx.set_presence(Some(Activity::playing("$man man")), OnlineStatus::Online);
         println!("Up and running");
         if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
             ChannelId::from(**id)
@@ -37,12 +37,7 @@ impl EventHandler for Handler {
         ctx.data.write().remove::<UpdateNotify>();
     }
 
-    fn guild_member_addition(
-    &self,
-    ctx: Context,
-    guild_id: GuildId,
-    new_member: Member
-    ) {
+    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         new_member
             .user_id()
             .to_user(&ctx)
