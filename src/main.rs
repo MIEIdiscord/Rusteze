@@ -7,9 +7,9 @@ use serenity::{
     prelude::*,
 };
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
-use crate::commands::{COURSES_GROUP, STUDY_GROUP, admin::ADMIN_GROUP};
+use crate::{commands::{COURSES_GROUP, STUDY_GROUP, admin::ADMIN_GROUP}, channels::{read_courses, MiEI}};
 
 struct UpdateNotify;
 
@@ -43,6 +43,11 @@ fn main() {
         {
             data.insert::<UpdateNotify>(Arc::new(id));
         }
+    let roles = match read_courses() {
+        Ok(a) => a,
+        Err(_) => panic!("No courses loaded"),
+    };
+    data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
     }
     client.with_framework(
         StandardFramework::new()
