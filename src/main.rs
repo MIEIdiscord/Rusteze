@@ -5,7 +5,7 @@ use serenity::{
     framework::standard::StandardFramework,
     model::{
         gateway::{Ready, Activity},
-        id::GuildId,
+        id::{GuildId, ChannelId},
         guild::Member,
         user::OnlineStatus
     },
@@ -35,6 +35,7 @@ impl EventHandler for Handler {
                 .expect("Couldn't send update notification");
         }
         ctx.data.write().remove::<UpdateNotify>();
+    }
 
     fn guild_member_addition(
     &self,
