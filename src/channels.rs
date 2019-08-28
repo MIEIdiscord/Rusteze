@@ -5,12 +5,13 @@ use serenity::model::{
     id::{ChannelId, GuildId, RoleId},
     permissions::Permissions,
 };
+use serenity::framework::standard::CommandResult;
 use serenity::prelude::Context;
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Error, ErrorKind};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -131,17 +132,17 @@ impl MiEI {
         role_name: &'a str,
         ctx: &Context,
         guild: GuildId,
-    ) -> Option<&'a str> {
+    ) -> io::Result<&'a str> {
         let role = self
             .courses
             .values_mut()
-            .filter_map(|x| x.pop_role(&role_name.to_uppercase()))
+            .filter_map(|x| x.pop_role(role_name))
             .map(|x| x.remove_course(&ctx, guild))
             .next();
-        self.write_courses();
+        self.write_courses()?;
         match role {
-            Some(a) => Some(role_name),
-            None => None,
+            Some(_) => Ok(role_name),
+            None => Err(Error::new(ErrorKind::Other, "Error writing to JSON")),
         }
     }
 
@@ -219,11 +220,12 @@ struct Course {
 }
 
 impl Course {
-    fn remove_course(&self, ctx: &Context, guild: GuildId) {
+    fn remove_course(&self, ctx: &Context, guild: GuildId) -> CommandResult {
         for channel in &self.channels {
-            channel.delete(&ctx.http);
+            channel.delete(&ctx.http)?;
         }
-        guild.delete_role(&ctx.http, self.role);
+        guild.delete_role(&ctx.http, self.role)?;
+        Ok(())
     }
 }
 

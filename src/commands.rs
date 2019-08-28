@@ -112,7 +112,7 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(guild) = msg.guild_id {
         let rm_roles = args
             .raw()
-            .filter_map(|x| roles.remove_role(x, &ctx, guild))
+            .filter_map(|x| roles.remove_role(x, &ctx, guild).ok())
             .collect::<Vec<&str>>();
         if rm_roles.is_empty() {
             msg.channel_id
