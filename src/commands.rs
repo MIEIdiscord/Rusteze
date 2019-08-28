@@ -1,6 +1,5 @@
 pub mod admin;
 
-use crate::channels::read_courses;
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -9,6 +8,7 @@ use serenity::{
     model::{channel::Message, id::RoleId},
     prelude::*,
 };
+use crate::channels::MiEI;
 
 group!({
     name: "study",
@@ -33,7 +33,8 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 
 #[command]
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let roles = read_courses()?;
+    let trash = ctx.data.read();
+    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
     let mut names = Vec::new();
     let ids = args
         .raw()
@@ -66,7 +67,8 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let roles = read_courses()?;
+    let trash = ctx.data.read();
+    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
     let mut names = Vec::new();
     let ids = args
         .raw()
@@ -93,7 +95,8 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[min_args(3)]
 pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut roles = read_courses()?;
+    let trash = ctx.data.write();
+    let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
     let mut iter = args.raw();
     let year = iter.next();
     let semester = iter.next();
@@ -116,7 +119,8 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut roles = read_courses()?;
+    let trash = ctx.data.write();
+    let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
     if let Some(guild) = msg.guild_id {
         let rm_roles = args
             .raw()
