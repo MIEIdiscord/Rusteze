@@ -20,7 +20,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["courses"],
     },
-    commands: [mk],
+    commands: [mk, rm],
 });
 
 #[command]
@@ -106,6 +106,27 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             msg.channel_id.say(
                 &ctx.http,
                 format!("Cadeiras criadas: {}", new_roles.join(" ")),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+#[command]
+pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut roles = read_courses()?;
+    if let Some(guild) = msg.guild_id {
+        let rm_roles = args
+            .raw()
+            .filter_map(|x| roles.remove_role(x, &ctx, guild).ok())
+            .collect::<Vec<&str>>();
+        if rm_roles.is_empty() {
+            msg.channel_id
+                .say(&ctx.http, "Não foram removidas cadeiras")?;
+        } else {
+            msg.channel_id.say(
+                &ctx.http,
+                format!("Cadeiras removidas: {}", rm_roles.join(" ")),
             )?;
         }
     }

@@ -5,12 +5,13 @@ use serenity::model::{
     id::{ChannelId, GuildId, RoleId},
     permissions::Permissions,
 };
+use serenity::framework::standard::CommandResult;
 use serenity::prelude::Context;
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Error, ErrorKind};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -49,7 +50,7 @@ impl MiEI {
             years
                 .values()
                 .flat_map(|x| x.get_role(&role_name.to_uppercase()))
-                .map(|x| (role_name, x))
+                .map(|x| (role_name, x.role))
                 .collect::<Vec<(&str, RoleId)>>()
         }
     }
@@ -126,6 +127,25 @@ impl MiEI {
             .add_role(role_name, course, semester);
     }
 
+    pub fn remove_role<'a>(
+        &mut self,
+        role_name: &'a str,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> io::Result<&'a str> {
+        let role = self
+            .courses
+            .values_mut()
+            .filter_map(|x| x.pop_role(role_name))
+            .map(|x| x.remove_course(&ctx, guild))
+            .next();
+        self.write_courses()?;
+        match role {
+            Some(_) => Ok(role_name),
+            None => Err(Error::new(ErrorKind::Other, "Error writing to JSON")),
+        }
+    }
+
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
@@ -162,11 +182,10 @@ impl Year {
             .collect::<Vec<(&str, RoleId)>>()
     }
 
-    fn get_role<'a>(&self, role_name: &'a str) -> Option<RoleId> {
+    fn get_role<'a>(&self, role_name: &'a str) -> Option<&Course> {
         self.courses
             .values()
             .filter_map(|x| x.courses.get(role_name))
-            .map(|x| x.role)
             .next()
     }
 
@@ -178,6 +197,13 @@ impl Year {
             })
             .courses
             .insert(role_name.to_string(), course);
+    }
+
+    fn pop_role(&mut self, role_name: &str) -> Option<Course> {
+        self.courses
+            .values_mut()
+            .filter_map(|x| x.courses.remove(&role_name.to_uppercase()))
+            .next()
     }
 }
 
@@ -191,6 +217,16 @@ struct Semester {
 struct Course {
     role: RoleId,
     channels: Vec<ChannelId>,
+}
+
+impl Course {
+    fn remove_course(&self, ctx: &Context, guild: GuildId) -> CommandResult {
+        for channel in &self.channels {
+            channel.delete(&ctx.http)?;
+        }
+        guild.delete_role(&ctx.http, self.role)?;
+        Ok(())
+    }
 }
 
 pub fn read_courses() -> io::Result<MiEI> {
