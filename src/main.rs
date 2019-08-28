@@ -9,11 +9,12 @@ use serenity::{
     },
     model::{
         channel::{Channel, Message},
-        gateway::Ready,
+        gateway::{Ready, Activity},
         id::{GuildId, UserId},
         permissions::Permissions,
         voice::VoiceState,
-        guild::{PartialGuild, Member}
+        guild::{PartialGuild, Member},
+        user::OnlineStatus
     },
     prelude::*,
     utils::Colour,
@@ -33,6 +34,7 @@ struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, _ready: Ready) {
+        ctx.set_presence(Some(Activity::playing("$man man")),OnlineStatus::Online);
         println!("Up and running");
         if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
             ChannelId::from(**id)
