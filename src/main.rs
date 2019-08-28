@@ -2,22 +2,27 @@ pub mod channels;
 mod commands;
 
 use serenity::{
-    framework::standard::StandardFramework,
+    framework::standard::{
+        help_commands, macros::help, Args, CommandGroup, CommandResult, HelpOptions,
+        StandardFramework,
+    },
     model::{
+        channel::Message,
         gateway::{Activity, Ready},
         guild::Member,
-        id::{ChannelId, GuildId},
+        id::{ChannelId, GuildId, UserId},
         user::OnlineStatus,
     },
     prelude::*,
     utils::Colour,
 };
+use std::collections::HashSet;
 use std::fs;
 use std::sync::{Arc, RwLock};
 
 use crate::{
     channels::{read_courses, MiEI},
-    commands::{admin::ADMIN_GROUP, COURSES_GROUP, STUDY_GROUP},
+    commands::{admin::ADMIN_GROUP, MISC_GROUP, COURSES_GROUP, STUDY_GROUP},
 };
 
 struct UpdateNotify;
@@ -82,7 +87,7 @@ fn main() {
         {
             data.insert::<UpdateNotify>(Arc::new(id));
         }
-        let roles = read_courses().expect("No courses loaded"); 
+        let roles = read_courses().expect("No courses loaded");
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
     }
     client.with_framework(
@@ -90,9 +95,28 @@ fn main() {
             .configure(|c| c.prefix("$"))
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)
-            .group(&ADMIN_GROUP),
+            .group(&ADMIN_GROUP)
+            .group(&MISC_GROUP)
+            .help(&MY_HELP),
     );
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);
     }
+}
+
+#[help("man")]
+#[command_not_found_text("No manual entry for that")]
+#[max_levenshtein_distance(5)]
+#[lacking_permissions("hide")]
+#[strikethrough_commands_tip_in_guild(" ")]
+#[strikethrough_commands_tip_in_dm(" ")]
+fn my_help(
+    context: &mut Context,
+    msg: &Message,
+    args: Args,
+    help_options: &'static HelpOptions,
+    groups: &[&'static CommandGroup],
+    owners: HashSet<UserId>,
+) -> CommandResult {
+    help_commands::with_embeds(context, msg, args, help_options, groups, owners)
 }

@@ -9,7 +9,6 @@ use serenity::model::{
 };
 use serenity::prelude::{Context, TypeMapKey};
 
-
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;

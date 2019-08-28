@@ -13,7 +13,13 @@ use crate::channels::MiEI;
 group!({
     name: "study",
     options: {},
-    commands: [ping, study, unstudy],
+    commands: [study, unstudy],
+});
+
+group!({
+    name: "Misc",
+    options: {},
+    commands: [ping],
 });
 
 group!({
