@@ -1,19 +1,22 @@
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serenity::framework::standard::CommandResult;
 use serenity::model::{
     channel::{ChannelType, PermissionOverwrite, PermissionOverwriteType::Role},
     id::{ChannelId, GuildId, RoleId},
     permissions::Permissions,
 };
-use serenity::framework::standard::CommandResult;
-use serenity::prelude::{TypeMapKey, Context};
-use lazy_static::lazy_static;
+use serenity::prelude::{Context, TypeMapKey};
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::{io::{BufReader, BufWriter, Error, ErrorKind}, sync::{Arc, RwLock}};
+use std::{
+    io::{BufReader, BufWriter, Error, ErrorKind},
+    sync::{Arc, RwLock},
+};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
