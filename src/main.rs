@@ -2,18 +2,11 @@ pub mod channels;
 mod commands;
 
 use serenity::{
-    framework::standard::{
-        help_commands,
-        macros::{command, group, help},
-        Args, CommandGroup, CommandResult, HelpOptions, StandardFramework,
-    },
+    framework::standard::StandardFramework,
     model::{
-        channel::{Channel, Message},
         gateway::{Ready, Activity},
-        id::{GuildId, UserId},
-        permissions::Permissions,
-        voice::VoiceState,
-        guild::{PartialGuild, Member},
+        id::GuildId,
+        guild::Member,
         user::OnlineStatus
     },
     prelude::*,
