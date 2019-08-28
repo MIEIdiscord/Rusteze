@@ -1,13 +1,13 @@
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serenity::framework::standard::CommandResult;
 use serenity::model::{
     channel::{ChannelType, PermissionOverwrite, PermissionOverwriteType::Role},
     id::{ChannelId, GuildId, RoleId},
     permissions::Permissions,
 };
-use serenity::framework::standard::CommandResult;
 use serenity::prelude::Context;
-use lazy_static::lazy_static;
 
 use std::collections::HashMap;
 use std::fs::File;
