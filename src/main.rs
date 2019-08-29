@@ -82,10 +82,7 @@ fn main() {
         {
             data.insert::<UpdateNotify>(Arc::new(id));
         }
-        let roles = match read_courses() {
-            Ok(a) => a,
-            Err(_) => panic!("No courses loaded"),
-        };
+        let roles = read_courses().expect("No courses loaded"); 
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
     }
     client.with_framework(
