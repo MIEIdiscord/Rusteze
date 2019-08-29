@@ -7,13 +7,17 @@ use serenity::model::{
     id::{ChannelId, GuildId, RoleId},
     permissions::Permissions,
 };
-use serenity::prelude::Context;
+use serenity::prelude::{Context, TypeMapKey};
+
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
-use std::io::{BufReader, BufWriter, Error, ErrorKind};
+use std::{
+    io::{BufReader, BufWriter, Error, ErrorKind},
+    sync::{Arc, RwLock},
+};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -151,6 +155,10 @@ impl MiEI {
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
+}
+
+impl TypeMapKey for MiEI {
+    type Value = Arc<RwLock<MiEI>>;
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
