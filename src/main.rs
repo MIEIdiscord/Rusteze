@@ -1,6 +1,11 @@
 pub mod channels;
 mod commands;
 
+use crate::{
+    channels::{read_courses, MiEI},
+    commands::{admin::ADMIN_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
+};
+
 use serenity::{
     framework::standard::{
         help_commands, macros::help, Args, CommandGroup, CommandResult, HelpOptions,
@@ -16,14 +21,10 @@ use serenity::{
     prelude::*,
     utils::Colour,
 };
+
 use std::collections::HashSet;
 use std::fs;
 use std::sync::{Arc, RwLock};
-
-use crate::{
-    channels::{read_courses, MiEI},
-    commands::{admin::ADMIN_GROUP, MISC_GROUP, COURSES_GROUP, STUDY_GROUP},
-};
 
 struct UpdateNotify;
 

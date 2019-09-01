@@ -1,5 +1,7 @@
 pub mod admin;
 
+use crate::channels::MiEI;
+
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -8,7 +10,6 @@ use serenity::{
     model::{channel::Message, id::RoleId},
     prelude::*,
 };
-use crate::channels::MiEI;
 
 group!({
     name: "study",
@@ -20,15 +21,6 @@ group!({
     name: "Misc",
     options: {},
     commands: [ping],
-});
-
-group!({
-    name: "courses",
-    options: {
-        required_permissions: [ADMINISTRATOR],
-        prefixes: ["courses"],
-    },
-    commands: [mk, rm],
 });
 
 #[command]
@@ -107,6 +99,15 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     }
     Ok(())
 }
+
+group!({
+    name: "courses",
+    options: {
+        required_permissions: [ADMINISTRATOR],
+        prefixes: ["courses"],
+    },
+    commands: [mk, rm],
+});
 
 #[command]
 #[min_args(3)]
