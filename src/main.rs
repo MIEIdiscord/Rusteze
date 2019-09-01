@@ -97,6 +97,18 @@ fn main() {
         StandardFramework::new()
             .configure(|c| c.prefix("$"))
             .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
+            .after(|ctx, msg, cmd_name, error| match error {
+                Ok(()) => println!("Processed command '{}' for user '{}'", cmd_name, msg.author),
+                Err(why) => {
+                    let _ = msg.channel_id.say(ctx, &why.0);
+                    println!("Command '{}' failed with {:?}", cmd_name, why)
+                }
+            })
+            .on_dispatch_error(|ctx, msg, error| {
+                msg.channel_id
+                    .say(ctx, format!("{:?}", error))
+                    .expect("Couldn't communicate dispatch error");
+            })
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)
             .group(&ADMIN_GROUP)
