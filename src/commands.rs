@@ -38,6 +38,11 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[description("Permite a um aluno juntar-se às salas das cadeiras.")]
+#[usage("[CADEIRA|ANO|SEMESTRE, ...]")]
+#[example("Algebra PI")]
+#[example("1ano")]
+#[example("2ano1sem")]
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
@@ -72,6 +77,11 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command]
+#[description("Permite a um aluno sair das salas das cadeiras.")]
+#[usage("[CADEIRA|ANO|SEMESTRE, ...]")]
+#[example("Algebra PI")]
+#[example("1ano")]
+#[example("2ano1sem")]
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
@@ -100,6 +110,8 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command]
 #[min_args(3)]
+#[description("Cria salas das cadeiras especificadas, associadas ao ano especificado.")]
+#[usage("ano semester [CADEIRA, ...]")]
 pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
     let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
@@ -124,6 +136,8 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command]
+#[description("Remove salas das cadeiras especificadas.")]
+#[usage("[CADEIRA, ...]")]
 pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
     let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
