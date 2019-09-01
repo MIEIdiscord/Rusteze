@@ -23,7 +23,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["sudo"],
     },
-    commands: [update, cat],
+    commands: [update],
     sub_groups: [CHANNELS],
 });
 
