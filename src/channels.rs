@@ -18,8 +18,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+const COURSES: &str = "courses.json";
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct MiEI {
+    #[serde(flatten)]
     courses: HashMap<String, Year>,
 }
 
@@ -28,7 +31,7 @@ impl MiEI {
         let file = OpenOptions::new()
             .write(true)
             .truncate(true)
-            .open("config.json")?;
+            .open(COURSES)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer(writer, &self)?;
         Ok(())
@@ -239,7 +242,7 @@ impl Course {
 }
 
 pub fn read_courses() -> io::Result<MiEI> {
-    let file = File::open("config.json")?;
+    let file = File::open(COURSES)?;
     let reader = BufReader::new(file);
 
     let u = serde_json::from_reader(reader)?;

@@ -1,11 +1,12 @@
 pub mod channels;
 mod commands;
+pub mod config;
 
 use crate::{
     channels::{read_courses, MiEI},
     commands::{admin::ADMIN_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
+    config::Config,
 };
-
 use serenity::{
     framework::standard::{
         help_commands, macros::help, Args, CommandGroup, CommandResult, HelpOptions,
@@ -21,7 +22,6 @@ use serenity::{
     prelude::*,
     utils::Colour,
 };
-
 use std::collections::HashSet;
 use std::fs;
 use std::sync::{Arc, RwLock};
@@ -90,10 +90,13 @@ fn main() {
         }
         let roles = read_courses().expect("No courses loaded");
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
+        let config = Config::new().expect("Config not found");
+        data.insert::<Config>(Arc::new(RwLock::new(config)));
     }
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("$"))
+            .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)
             .group(&ADMIN_GROUP)
@@ -120,4 +123,22 @@ fn my_help(
     owners: HashSet<UserId>,
 ) -> CommandResult {
     help_commands::with_embeds(context, msg, args, help_options, groups, owners)
+}
+
+fn valid_channel(ctx: &mut Context, msg: &Message) -> bool {
+    ctx.data
+        .read()
+        .get::<Config>()
+        .unwrap()
+        .read()
+        .unwrap()
+        .channel_is_allowed(msg.channel_id)
+}
+
+fn is_admin(ctx: &mut Context, msg: &Message) -> bool {
+    msg.guild_id
+        .and_then(|g| g.member(&ctx, &msg.author).ok())
+        .and_then(|u| u.permissions(&ctx).ok())
+        .map(|p| p.administrator())
+        .unwrap_or(false)
 }
