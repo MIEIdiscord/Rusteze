@@ -95,7 +95,7 @@ fn main() {
     }
     client.with_framework(
         StandardFramework::new()
-            .configure(|c| c.prefix(">"))
+            .configure(|c| c.prefix("$"))
             .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)
