@@ -162,8 +162,8 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command]
-#[description("Remove salas das cadeiras especificadas.")]
-#[usage("[CADEIRA, ...]")]
+#[description("Lista as cadeiras disponíveis.")]
+#[usage("")]
 pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
