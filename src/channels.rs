@@ -158,7 +158,7 @@ impl MiEI {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
 
-    fn iter(&self) -> impl Iterator<Item = Channel> {
+    pub fn iter(&self) -> impl Iterator<Item = Channel> {
         self.courses.iter().flat_map(|(year, sems)| {
             sems.courses.iter().flat_map(move |(semester, courses)| {
                 courses.courses.keys().map(move |channel| Channel {
@@ -261,8 +261,8 @@ pub fn read_courses() -> io::Result<MiEI> {
     Ok(u)
 }
 
-struct Channel<'a> {
-    channel: &'a str,
-    semester: &'a str,
-    year: &'a str,
+pub struct Channel<'a> {
+    pub channel: &'a str,
+    pub semester: &'a str,
+    pub year: &'a str,
 }
