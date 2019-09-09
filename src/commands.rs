@@ -8,6 +8,7 @@ use serenity::{
     },
     model::{channel::Message, id::RoleId},
     prelude::*,
+    utils::Colour,
 };
 
 group!({
@@ -105,7 +106,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["courses"],
     },
-    commands: [mk, rm],
+    commands: [mk, rm, list],
 });
 
 #[command]
@@ -156,5 +157,29 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             )?;
         }
     }
+    Ok(())
+}
+
+#[command]
+#[description("Remove salas das cadeiras especificadas.")]
+#[usage("[CADEIRA, ...]")]
+pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let trash = ctx.data.read();
+    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
+
+    msg.channel_id.send_message(&ctx.http, |m|{
+        m.embed(|e| {
+            e.title("Informação sobre as cadeiras disponíveis");
+            e.description("`$study CADEIRA` junta-te às salas das cadeiras
+`$study Xano` junta-te a todas as cadeiras de um ano");
+
+            e.field("A field", "reeee" , false);
+            e.field("A field", "reeee" , false);
+            e.colour(Colour::from_rgb(0, 0, 0));
+            e
+        });
+        m
+    })?;
+
     Ok(())
 }

@@ -64,7 +64,7 @@ impl EventHandler for Handler {
       cadeiras com o comando `$study CADEIRA1, CADEIRA2, ...` ou, se preferires, podes-te juntar \
       a todas as cadeiras de um ano com o comando `$study Xano` substituindo o `X` pelo ano que queres.", ctx.cache.read().user.name));
                         e.footer( |f| {
-                            f.text("Qualquer dúvida sobre o bot podes usar $man man para saberes o que podes fazer.");
+                            f.text("Qualquer dúvida sobre o bot podes usar $man para saberes o que podes fazer.");
                             f
                         });
                         e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
@@ -95,7 +95,7 @@ fn main() {
     }
     client.with_framework(
         StandardFramework::new()
-            .configure(|c| c.prefix("$"))
+            .configure(|c| c.prefix(">"))
             .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)
