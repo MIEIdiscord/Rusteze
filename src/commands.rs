@@ -8,7 +8,9 @@ use serenity::{
     },
     model::{channel::Message, id::RoleId},
     prelude::*,
+    utils::Colour,
 };
+use std::collections::BTreeMap;
 
 group!({
     name: "study",
@@ -105,7 +107,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["courses"],
     },
-    commands: [mk, rm],
+    commands: [mk, rm, list],
 });
 
 #[command]
@@ -156,5 +158,42 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             )?;
         }
     }
+    Ok(())
+}
+
+#[command]
+#[description("Lista as cadeiras disponíveis.")]
+#[usage("")]
+pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let trash = ctx.data.read();
+    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
+
+    msg.channel_id.send_message(&ctx.http, |m| {
+        m.embed(|e| {
+            e.title("Informação sobre as cadeiras disponíveis");
+            e.description(
+                "`$study CADEIRA` junta-te às salas das cadeiras
+`$study Xano` junta-te a todas as cadeiras de um ano",
+            );
+            e.fields(
+                roles
+                    .iter()
+                    .fold(BTreeMap::new(), |mut acc, c| {
+                        let s = acc
+                            .entry(format!("{}ano{}semestre", c.year, c.semester))
+                            .or_insert(String::new());
+                        s.push_str(c.channel);
+                        s.push_str("\n");
+                        acc
+                    })
+                    .iter()
+                    .map(|(k, v)| (k, v, true)),
+            );
+            e.colour(Colour::from_rgb(0, 0, 0));
+            e
+        });
+        m
+    })?;
+
     Ok(())
 }
