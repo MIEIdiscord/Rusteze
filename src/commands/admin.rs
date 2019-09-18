@@ -135,6 +135,9 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+#[description("Make the bot send a message to a specific channel")]
+#[usage("#channel_mention message")]
+#[min_args(2)]
 pub fn say(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
     channel_id.say(&ctx.http, args.rest())?;
@@ -142,6 +145,9 @@ pub fn say(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
 }
 
 #[command]
+#[description("Edit a message sent by the bot")]
+#[usage("#channel_mention #message_id message")]
+#[min_args(2)]
 pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
     let msg_id = args.single::<u64>()?;
