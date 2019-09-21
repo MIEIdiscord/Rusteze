@@ -147,7 +147,7 @@ pub fn say(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[description("Edit a message sent by the bot")]
 #[usage("#channel_mention #message_id message")]
-#[min_args(2)]
+#[min_args(3)]
 pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
     let msg_id = args.single::<u64>()?;
