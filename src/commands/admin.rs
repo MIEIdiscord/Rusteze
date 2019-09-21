@@ -23,7 +23,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["sudo"],
     },
-    commands: [update],
+    commands: [edit, update, say],
     sub_groups: [CHANNELS],
 });
 
@@ -131,5 +131,27 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
     Err(Fork::new("cargo")
         .args(&["run", "--release", "--", "-r", &msg.channel_id.to_string()])
         .exec())?;
+    Ok(())
+}
+
+#[command]
+#[description("Make the bot send a message to a specific channel")]
+#[usage("#channel_mention message")]
+#[min_args(2)]
+pub fn say(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
+    let channel_id = args.single::<ChannelId>()?;
+    channel_id.say(&ctx.http, args.rest())?;
+    Ok(())
+}
+
+#[command]
+#[description("Edit a message sent by the bot")]
+#[usage("#channel_mention #message_id message")]
+#[min_args(3)]
+pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult {
+    let channel_id = args.single::<ChannelId>()?;
+    let msg_id = args.single::<u64>()?;
+    let mut message = channel_id.message(&ctx.http, msg_id)?;
+    message.edit(&ctx, |c| c.content(args.rest()))?;
     Ok(())
 }
