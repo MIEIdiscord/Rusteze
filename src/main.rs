@@ -9,7 +9,7 @@ use crate::{
 };
 use serenity::{
     framework::standard::{
-        help_commands, macros::help, Args, CommandGroup, CommandResult, HelpOptions,
+        help_commands, macros::help, Args, CommandGroup, CommandResult, DispatchError, HelpOptions,
         StandardFramework,
     },
     model::{
@@ -98,16 +98,27 @@ fn main() {
             .configure(|c| c.prefix("$"))
             .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
             .after(|ctx, msg, cmd_name, error| match error {
-                Ok(()) => println!("Processed command '{}' for user '{}'", cmd_name, msg.author),
+                Ok(()) => eprintln!("Processed command '{}' for user '{}'", cmd_name, msg.author),
                 Err(why) => {
                     let _ = msg.channel_id.say(ctx, &why.0);
-                    println!("Command '{}' failed with {:?}", cmd_name, why)
+                    eprintln!("Command '{}' failed with {:?}", cmd_name, why)
                 }
             })
             .on_dispatch_error(|ctx, msg, error| {
-                msg.channel_id
-                    .say(ctx, format!("{:?}", error))
-                    .expect("Couldn't communicate dispatch error");
+                eprintln!("DispatchError: {:?}", error);
+                if let Some(s) = match error {
+                    DispatchError::NotEnoughArguments { min: m, given: g } => {
+                        Some(format!("Not enough arguments! min: {}, given: {}", m, g))
+                    }
+                    DispatchError::TooManyArguments { max: m, given: g } => {
+                        Some(format!("Too many arguments! max: {}, given: {}", m, g))
+                    }
+                    _ => None,
+                } {
+                    msg.channel_id
+                        .say(ctx, s)
+                        .expect("Couldn't communicate dispatch error");
+                }
             })
             .group(&STUDY_GROUP)
             .group(&COURSES_GROUP)

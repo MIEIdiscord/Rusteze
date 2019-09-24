@@ -7,15 +7,14 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::*,
 };
+use lazy_static::lazy_static;
 
 use std::os::unix::process::CommandExt;
 use std::process::Command as Fork;
 use std::str;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, TryLockError};
 
 use crate::config::Config;
-
-static UPDATING: AtomicBool = AtomicBool::new(false);
 
 group!({
     name: "Admin",
@@ -80,28 +79,39 @@ pub fn del(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[description("Update the bot")]
 pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
-    if UPDATING.load(Ordering::SeqCst) {
-        Err("Alreading updating")?;
-    } else {
-        UPDATING.store(true, Ordering::SeqCst);
-    }
-    msg.channel_id.say(&ctx, "Fetching...")?;
+    lazy_static! {
+        static ref UPDATING: Mutex<()> = Mutex::new(());
+    };
+    let _ = match UPDATING.try_lock() {
+        Err(TryLockError::WouldBlock) => return Err("Alreading updating".into()),
+        Err(TryLockError::Poisoned(p)) => return Err(p.into()),
+        Ok(guard) => guard,
+    };
+    let check_msg = |mut m: Message| {
+        let new_msg = format!("{} :white_check_mark:", m.content);
+        m.edit(&ctx, |m| m.content(new_msg))
+    };
+    let message = msg.channel_id.say(&ctx, "Fetching...")?;
     Fork::new("git").arg("fetch").spawn()?.wait()?;
+    check_msg(message)?;
 
-    msg.channel_id.say(&ctx, "Checking remote...")?;
+    let message = msg.channel_id.say(&ctx, "Checking remote...")?;
     let status = Fork::new("git")
         .args(&["rev-list", "--count", "master...master@{upstream}"])
         .output()?;
-    if let 0 = String::from_utf8_lossy(&status.stdout)
+    check_msg(message)?;
+
+    if 0 == String::from_utf8_lossy(&status.stdout)
         .trim()
         .parse::<i32>()?
     {
-        Err("No updates!".to_string())?;
+        return Err("No updates!".into());
     }
 
-    msg.channel_id.say(&ctx, "Pulling from remote...")?;
-    match &Fork::new("git").arg("pull").output()? {
-        out if !out.status.success() => Err(format!(
+    let message = msg.channel_id.say(&ctx, "Pulling from remote...")?;
+    let out = &Fork::new("git").arg("pull").output()?;
+    if !out.status.success() {
+        return Err(format!(
             "Error pulling!
             ```
             ============= stdout =============
@@ -111,27 +121,36 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
             ```",
             str::from_utf8(&out.stdout)?,
             str::from_utf8(&out.stderr)?
-        ))?,
-        _ => (),
+        )
+        .into());
     }
+    check_msg(message)?;
 
-    msg.channel_id.say(&ctx, "Compiling...")?;
-    match &Fork::new("cargo").args(&["build", "--release"]).output()? {
-        out if !out.status.success() => Err(format!(
+    let message = msg.channel_id.say(&ctx, "Compiling...")?;
+    let out = &Fork::new("cargo").args(&["build", "--release"]).output()?;
+    if !out.status.success() {
+        return Err(format!(
             "Build Error!
             ```
+            ============= stderr =============
             {}
             ```",
-            str::from_utf8(&out.stderr)?
-        ))?,
-        _ => (),
+            {
+                let s = str::from_utf8(&out.stderr)?;
+                &s[s.len() - 1500..]
+            }
+        )
+        .into());
     }
+    check_msg(message)?;
 
     msg.channel_id.say(ctx, "Rebooting...")?;
-    Err(Fork::new("cargo")
+    std::env::set_var("RUST_BACKTRACE", "1");
+    let error = Fork::new("cargo")
         .args(&["run", "--release", "--", "-r", &msg.channel_id.to_string()])
-        .exec())?;
-    Ok(())
+        .exec();
+    std::env::remove_var("RUST_BACKTRACE");
+    Err(error.into())
 }
 
 #[command]
