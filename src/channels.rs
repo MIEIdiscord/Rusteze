@@ -20,7 +20,7 @@ use std::{
 
 const COURSES: &str = "courses.json";
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 pub struct MiEI {
     #[serde(flatten)]
     courses: HashMap<String, Year>,
@@ -31,6 +31,7 @@ impl MiEI {
         let file = OpenOptions::new()
             .write(true)
             .truncate(true)
+            .create(true)
             .open(COURSES)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer(writer, &self)?;
@@ -70,10 +71,10 @@ impl MiEI {
         semester: &str,
         course: &'a str,
         guild: GuildId,
-    ) -> Option<&'a str> {
+    ) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
         let upper_course = course.to_uppercase();
         if self.role_exists(&upper_course) {
-            None
+            Ok(None)
         } else {
             let role = guild
                 .create_role(&ctx.http, |z| {
@@ -118,11 +119,8 @@ impl MiEI {
                 channels: vec![category.id, anexos.id, duvidas.id],
             };
             self.add_role(&upper_course, courses, semester, year);
-            match self.write_courses() {
-                Ok(()) => (),
-                Err(b) => panic!("{}", b),
-            };
-            Some(course)
+            self.write_courses()?;
+            Ok(Some(course))
         }
     }
 
@@ -175,7 +173,7 @@ impl TypeMapKey for MiEI {
     type Value = Arc<RwLock<MiEI>>;
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 struct Year {
     #[serde(flatten)]
     courses: HashMap<String, Semester>,
@@ -231,13 +229,13 @@ impl Year {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 struct Semester {
     #[serde(flatten)]
     courses: HashMap<String, Course>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 struct Course {
     role: RoleId,
     channels: Vec<ChannelId>,

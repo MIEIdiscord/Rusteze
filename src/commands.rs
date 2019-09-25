@@ -104,16 +104,16 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 group!({
     name: "courses",
     options: {
-        required_permissions: [ADMINISTRATOR],
         prefixes: ["courses"],
     },
     commands: [mk, rm, list],
 });
 
 #[command]
-#[min_args(3)]
 #[description("Cria salas das cadeiras especificadas, associadas ao ano especificado.")]
 #[usage("ano semester [CADEIRA, ...]")]
+#[min_args(3)]
+#[required_permissions(ADMINISTRATOR)]
 pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
     let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
@@ -122,8 +122,8 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let semester = iter.next();
     if let (Some(y), Some(s), Some(g)) = (year, semester, msg.guild_id) {
         let new_roles = iter
-            .filter_map(|x| roles.create_role(ctx, &y, &s, x, g))
-            .collect::<Vec<&str>>();
+            .filter_map(|x| roles.create_role(ctx, &y, &s, x, g).transpose())
+            .collect::<Result<Vec<&str>, Box<dyn std::error::Error>>>()?;
         if new_roles.is_empty() {
             msg.channel_id
                 .say(&ctx.http, "Não foram criadas novas cadeiras")?;
@@ -140,6 +140,7 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description("Remove salas das cadeiras especificadas.")]
 #[usage("[CADEIRA, ...]")]
+#[required_permissions(ADMINISTRATOR)]
 pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
     let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
@@ -181,7 +182,7 @@ pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
                     .fold(BTreeMap::new(), |mut acc, c| {
                         let s = acc
                             .entry(format!("{}ano{}semestre", c.year, c.semester))
-                            .or_insert(String::new());
+                            .or_insert_with(String::new);
                         s.push_str(c.channel);
                         s.push_str("\n");
                         acc
