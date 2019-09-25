@@ -6,8 +6,9 @@ use std::error;
 use std::fs::File;
 use std::sync::{Arc, RwLock};
 
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     allowed_channels: HashSet<ChannelId>,
 }
 

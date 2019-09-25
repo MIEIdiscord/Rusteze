@@ -88,9 +88,9 @@ fn main() {
         {
             data.insert::<UpdateNotify>(Arc::new(id));
         }
-        let roles = read_courses().expect("No courses loaded");
+        let roles = read_courses().unwrap_or_default();
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
-        let config = Config::new().expect("Config not found");
+        let config = Config::new().unwrap_or_default();
         data.insert::<Config>(Arc::new(RwLock::new(config)));
     }
     client.with_framework(
@@ -105,7 +105,10 @@ fn main() {
                 }
             })
             .on_dispatch_error(|ctx, msg, error| {
-                eprintln!("DispatchError: {:?}", error);
+                eprintln!(
+                    "Command '{}' for user '{}' failed with error '{:?}'",
+                    msg.content, msg.author, error
+                );
                 if let Some(s) = match error {
                     DispatchError::NotEnoughArguments { min: m, given: g } => {
                         Some(format!("Not enough arguments! min: {}, given: {}", m, g))
