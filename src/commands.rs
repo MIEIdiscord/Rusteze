@@ -31,6 +31,12 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
+pub fn info(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id.say(&ctx.http, "Powered by JAVA8™")?;
+    Ok(())
+}
+
+#[command]
 #[description("Permite a um aluno juntar-se às salas das cadeiras.")]
 #[usage("[CADEIRA|ANO|SEMESTRE, ...]")]
 #[example("Algebra PI")]
