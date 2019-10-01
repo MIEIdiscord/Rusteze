@@ -21,7 +21,7 @@ group!({
 group!({
     name: "Misc",
     options: {},
-    commands: [ping],
+    commands: [ping, info],
 });
 
 #[command]
