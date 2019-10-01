@@ -21,7 +21,7 @@ group!({
 group!({
     name: "Misc",
     options: {},
-    commands: [ping, info],
+    commands: [ping, info, material],
 });
 
 #[command]
@@ -35,6 +35,14 @@ pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[description("Informação relativa à linguagem de programação utilizada para desenvolvimento do Bot.")]
 pub fn info(ctx: &mut Context, msg: &Message) -> CommandResult {
     msg.channel_id.say(&ctx.http, "Powered by JAVA8™")?;
+    Ok(())
+}
+
+#[command]
+#[description("Apresenta o link para o material de apoio do curso.")]
+#[usage("")]
+pub fn material(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id.say(&ctx.http, "**Este é o link para o material do curso** -> http://bit.ly/materialmiei")?;
     Ok(())
 }
 
