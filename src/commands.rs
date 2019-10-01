@@ -21,12 +21,20 @@ group!({
 group!({
     name: "Misc",
     options: {},
-    commands: [ping],
+    commands: [ping, info],
 });
 
 #[command]
+#[description("Teste de conectividade entre o Bot e os servidores do Discord.")]
 pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
     msg.channel_id.say(&ctx.http, "Pong but in rust!")?;
+    Ok(())
+}
+
+#[command]
+#[description("Informação relativa à linguagem de programação utilizada para desenvolvimento do Bot.")]
+pub fn info(ctx: &mut Context, msg: &Message) -> CommandResult {
+    msg.channel_id.say(&ctx.http, "Powered by JAVA8™")?;
     Ok(())
 }
 
