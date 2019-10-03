@@ -1,4 +1,6 @@
+use crate::config::Config;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -7,14 +9,10 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::*,
 };
-use lazy_static::lazy_static;
-
 use std::os::unix::process::CommandExt;
 use std::process::Command as Fork;
 use std::str;
 use std::sync::{Mutex, TryLockError};
-
-use crate::config::Config;
 
 group!({
     name: "Admin",
@@ -79,9 +77,7 @@ pub fn del(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[description("Update the bot")]
 pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
-    lazy_static! {
-        static ref UPDATING: Mutex<()> = Mutex::new(());
-    };
+    static UPDATING: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     let _ = match UPDATING.try_lock() {
         Err(TryLockError::WouldBlock) => return Err("Alreading updating".into()),
         Err(TryLockError::Poisoned(p)) => return Err(p.into()),
