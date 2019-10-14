@@ -10,6 +10,8 @@ use std::sync::{Arc, RwLock};
 pub struct Config {
     #[serde(default)]
     allowed_channels: HashSet<ChannelId>,
+    #[serde(default)]
+    greet_channel: Option<ChannelId>,
 }
 
 const CONFIG: &str = "config.json";
@@ -38,6 +40,20 @@ impl Config {
 
     pub fn remove_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Box<dyn error::Error>> {
         self.allowed_channels.remove(&ch);
+        Config::serialize(self)
+    }
+
+    pub fn greet_channel(&self) -> Option<ChannelId> {
+        self.greet_channel
+    }
+
+    pub fn set_greet_channel(&mut self, greet_channel: ChannelId) -> Result<(), Box<dyn error::Error>> {
+        self.greet_channel = Some(greet_channel);
+        Config::serialize(self)
+    }
+
+    pub fn remove_greet_channel(&mut self) -> Result<(), Box<dyn error::Error>> {
+        self.greet_channel = None;
         Config::serialize(self)
     }
 }
