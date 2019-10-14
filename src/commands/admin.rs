@@ -21,7 +21,7 @@ group!({
         prefixes: ["sudo"],
     },
     commands: [edit, update, say],
-    sub_groups: [CHANNELS],
+    sub_groups: [CHANNELS, GREETING_CHANNELS],
 });
 
 group!({
@@ -30,6 +30,14 @@ group!({
         prefixes: ["ch", "channel"]
     },
     commands: [del, add, list],
+});
+
+group!({
+    name: "greeting_channels",
+    options: {
+        prefixes: ["greet"]
+    },
+    commands: [greet_channel_set, greet_channel_clear, greet_channel]
 });
 
 #[command]
@@ -168,5 +176,49 @@ pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult 
     let msg_id = args.single::<u64>()?;
     let mut message = channel_id.message(&ctx.http, msg_id)?;
     message.edit(&ctx, |c| c.content(args.rest()))?;
+    Ok(())
+}
+
+#[command("set")]
+#[description("Set the channel where the greet will be sent")]
+#[usage("#channel_mention")]
+#[min_args(1)]
+pub fn greet_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let channel_id = args.single::<ChannelId>()?;
+    let share_map = ctx.data.read();
+    let mut config = share_map.get::<Config>().unwrap().write()?;
+    config.set_greet_channel(channel_id)?;
+    msg.channel_id.say(&ctx, "Greet channel set")?;
+    Ok(())
+}
+
+#[command("clear")]
+#[description("Disable the greeting channel")]
+#[usage("")]
+pub fn greet_channel_clear(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let share_map = ctx.data.read();
+    let mut config = share_map.get::<Config>().unwrap().write()?;
+    config.remove_greet_channel()?;
+    msg.channel_id.say(&ctx, "Greet channel cleared")?;
+    Ok(())
+}
+
+#[command("get")]
+#[description("Check the current greet channel")]
+#[usage("")]
+pub fn greet_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
+    match ctx
+        .data
+        .read()
+        .get::<Config>()
+        .unwrap()
+        .read()?
+        .greet_channel()
+    {
+        Some(ch) => msg
+            .channel_id
+            .say(&ctx, format!("Greet channel: {}", ch.mention()))?,
+        None => msg.channel_id.say(&ctx, "No greet channel")?,
+    };
     Ok(())
 }
