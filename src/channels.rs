@@ -1,4 +1,4 @@
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::framework::standard::CommandResult;
@@ -8,7 +8,6 @@ use serenity::model::{
     permissions::Permissions,
 };
 use serenity::prelude::{Context, TypeMapKey};
-
 use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -40,11 +39,9 @@ impl MiEI {
 
     pub fn get_role_id<'a>(&'a self, role_name: &'a str) -> Vec<(&'a str, RoleId)> {
         let years = &self.courses;
-        lazy_static! {
-            static ref REGEX: Regex =
-                Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap();
-            static ref YEAR_REGEX: Regex = Regex::new("([0-9])+((?i)ano)").unwrap();
-        };
+        static REGEX: Lazy<Regex> =
+            Lazy::new(|| Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap());
+        static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("([0-9])+((?i)ano)").unwrap());
         if let Some(splits) = REGEX.captures(role_name) {
             match years.get(&splits[1]) {
                 Some(x) => x.get_semester_roles(&splits[2]),
