@@ -51,17 +51,21 @@ impl EventHandler for Handler {
         let config = share_map.get::<Config>().unwrap().read().unwrap();
         if let Some(ch) = config.greet_channel() {
             let user = new_member.user_id();
-            ch.send_message(&ctx, |m| m.embed(|e| {
-                e.title("Bem vindo ao servidor de MIEI!");
-                e.description(format!("{} faz `$study XanoYsem` para teres acesso as salas das cadeiras, para colorares duvidas ou tirares duvidas!", user.mention()));
-                e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
-                e.colour(Colour::from_rgb(0, 0, 0));
-                e.footer( |f| {
-                    f.text("Qualquer dúvida sobre o bot podes usar $man para saberes o que podes fazer.");
-                    f
+            ch.send_message(&ctx, |m| {
+                m.content(user.mention());
+                m.embed(|e| {
+                    e.title("Bem vindo ao servidor de MIEI!");
+                    e.description("Faz `$study XanoYsem` para teres acesso as salas das cadeiras, para colorares duvidas ou tirares duvidas!");
+                    e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
+                    e.colour(Colour::from_rgb(0, 0, 0));
+                    e.footer( |f| {
+                        f.text("Qualquer dúvida sobre o bot podes usar $man para saberes o que podes fazer.");
+                        f
+                    });
+                    e
                 });
-                e
-            })).map_err(|e| eprintln!("Couldn't greet new user {}: {:?}", user, e)).ok();
+                m
+            }).map_err(|e| eprintln!("Couldn't greet new user {}: {:?}", user, e)).ok();
         }
     }
 }
