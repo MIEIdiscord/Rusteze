@@ -49,13 +49,13 @@ impl EventHandler for Handler {
     fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         let share_map = ctx.data.read();
         let config = share_map.get::<Config>().unwrap().read().unwrap();
-        if let Some(ch) = config.greet_channel() {
+        if let (Some(ch), Some(greet_message)) = (config.greet_channel(), config.greet_message()) {
             let user = new_member.user_id();
             ch.send_message(&ctx, |m| {
                 m.content(user.mention());
                 m.embed(|e| {
                     e.title("Bem vindo ao servidor de MIEI!");
-                    e.description("Faz `$study XanoYsem` para teres acesso as salas das cadeiras, para colorares duvidas ou tirares duvidas!");
+                    e.description(greet_message);
                     e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
                     e.colour(Colour::from_rgb(0, 0, 0));
                     e.footer( |f| {
