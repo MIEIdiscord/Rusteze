@@ -12,11 +12,17 @@ pub struct Config {
     allowed_channels: HashSet<ChannelId>,
     #[serde(default)]
     greet_channel: Option<ChannelId>,
+    #[serde(default)]
+    greet_message: Option<String>,
 }
 
 const CONFIG: &str = "config.json";
 
 impl Config {
+    fn serialize(&self) -> Result<(), Box<dyn error::Error>> {
+        serde_json::to_writer(File::create(CONFIG)?, self).map_err(|e| e.into())
+    }
+
     pub fn new() -> Result<Self, Box<dyn error::Error>> {
         serde_json::from_reader(File::open(CONFIG)?).map_err(|e| e.into())
     }
@@ -34,10 +40,6 @@ impl Config {
         self.allowed_channels.iter()
     }
 
-    fn serialize(&self) -> Result<(), Box<dyn error::Error>> {
-        serde_json::to_writer(File::create(CONFIG)?, self).map_err(|e| e.into())
-    }
-
     pub fn remove_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Box<dyn error::Error>> {
         self.allowed_channels.remove(&ch);
         Config::serialize(self)
@@ -47,14 +49,23 @@ impl Config {
         self.greet_channel
     }
 
-    pub fn set_greet_channel(&mut self, greet_channel: ChannelId) -> Result<(), Box<dyn error::Error>> {
-        self.greet_channel = Some(greet_channel);
-        Config::serialize(self)
+    pub fn set_greet_channel(&mut self, greet_channel: ChannelId, msg: Option<String>) -> Result<(), Box<dyn error::Error>> {
+        if let Some(msg) = msg.or_else(|| self.greet_message.take()) {
+            self.greet_message = Some(msg);
+            self.greet_channel = Some(greet_channel);
+            Config::serialize(self)
+        } else {
+            Err("Provide a greeting for the channel".into())
+        }
     }
 
     pub fn remove_greet_channel(&mut self) -> Result<(), Box<dyn error::Error>> {
         self.greet_channel = None;
         Config::serialize(self)
+    }
+
+    pub fn greet_message(&self) -> Option<&str> {
+        self.greet_message.as_ref().map(|s| s.as_str())
     }
 }
 

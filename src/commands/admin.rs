@@ -185,9 +185,17 @@ pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult 
 #[min_args(1)]
 pub fn greet_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
+    let greeting = {
+        let rest = args.rest();
+        if rest.is_empty() {
+            None
+        } else {
+            Some(rest.to_string())
+        }
+    };
     let share_map = ctx.data.read();
     let mut config = share_map.get::<Config>().unwrap().write()?;
-    config.set_greet_channel(channel_id)?;
+    config.set_greet_channel(channel_id, greeting)?;
     msg.channel_id.say(&ctx, "Greet channel set")?;
     Ok(())
 }
