@@ -17,7 +17,7 @@ use serenity::{
         gateway::{Activity, Ready},
         guild::Member,
         id::{ChannelId, GuildId, UserId},
-        user::OnlineStatus,
+        user::{OnlineStatus, User},
     },
     prelude::*,
     utils::Colour,
@@ -49,7 +49,9 @@ impl EventHandler for Handler {
     fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         let share_map = ctx.data.read();
         let config = share_map.get::<Config>().unwrap().read().unwrap();
-        if let (Some(ch), Some(greet_message)) = (config.greet_channel(), config.greet_message()) {
+        if let (Some(ch), Some(greet_message)) =
+            (config.greet_channel(), config.greet_channel_message())
+        {
             let user = new_member.user_id();
             ch.send_message(&ctx, |m| {
                 m.content(user.mention());
@@ -66,6 +68,45 @@ impl EventHandler for Handler {
                 });
                 m
             }).map_err(|e| eprintln!("Couldn't greet new user {}: {:?}", user, e)).ok();
+        }
+    }
+
+    fn guild_member_removal(
+        &self,
+        ctx: Context,
+        _: GuildId,
+        user: User,
+        member_data: Option<Member>,
+    ) {
+        let share_map = ctx.data.read();
+        let config = share_map.get::<Config>().unwrap().read().unwrap();
+        if let Some(ch) = config.log_channel() {
+            let nick = member_data
+                .as_ref()
+                .and_then(|m| m.nick.as_ref().map(|s| s.as_str()))
+                .unwrap_or("None");
+            ch.send_message(&ctx, |m| {
+                m.embed(|e| {
+                    e.title("User left the server")
+                        .description(format!(
+                            "**Name:**      {}\n**Nickname:** {}",
+                            user.name, nick
+                        ))
+                        .thumbnail(
+                            user.avatar_url()
+                                .as_ref()
+                                .map(|s| s.as_str())
+                                .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
+                        )
+                })
+            })
+            .map_err(|e| {
+                println!(
+                    "Couldn't log user {} (nickname {}) leaving the server. Error: {:?}",
+                    user.name, nick, e
+                )
+            })
+            .ok();
         }
     }
 }

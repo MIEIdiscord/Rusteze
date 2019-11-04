@@ -21,7 +21,7 @@ group!({
         prefixes: ["sudo"],
     },
     commands: [edit, update, say],
-    sub_groups: [CHANNELS, GREETING_CHANNELS],
+    sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL],
 });
 
 group!({
@@ -38,6 +38,14 @@ group!({
         prefixes: ["greet"]
     },
     commands: [greet_channel_set, greet_channel_clear, greet_channel]
+});
+
+group!({
+    name: "log_channel",
+    options: {
+        prefixes: ["log"]
+    },
+    commands: [log_channel, log_channel_set]
 });
 
 #[command]
@@ -180,8 +188,8 @@ pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult 
 }
 
 #[command("set")]
-#[description("Set the channel where the greet will be sent")]
-#[usage("#channel_mention")]
+#[description("Set the channel where the greet will be sent and optionaly which message to show")]
+#[usage("#channel_mention [Message]")]
 #[min_args(1)]
 pub fn greet_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
@@ -227,5 +235,44 @@ pub fn greet_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
             .say(&ctx, format!("Greet channel: {}", ch.mention()))?,
         None => msg.channel_id.say(&ctx, "No greet channel")?,
     };
+    Ok(())
+}
+
+#[command("get")]
+#[description("Check the current log channel")]
+#[usage("")]
+pub fn log_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
+    match ctx
+        .data
+        .read()
+        .get::<Config>()
+        .unwrap()
+        .read()?
+        .log_channel()
+    {
+        Some(ch) => msg
+            .channel_id
+            .say(&ctx, format!("Log channel: {}", ch.mention()))?,
+        None => msg.channel_id.say(&ctx, "No log channel")?,
+    };
+    Ok(())
+}
+
+#[command("set")]
+#[description("Check the current log channel")]
+#[usage("")]
+pub fn log_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let channel_id = args.single::<ChannelId>().ok();
+    let share_map = ctx.data.read();
+    let mut config = share_map.get::<Config>().unwrap().write()?;
+    config.set_log_channel(channel_id)?;
+    msg.channel_id.say(
+        &ctx,
+        if channel_id.is_some() {
+            "Log channel set"
+        } else {
+            "Log channel disabled"
+        },
+    )?;
     Ok(())
 }

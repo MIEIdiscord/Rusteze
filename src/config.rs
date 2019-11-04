@@ -14,6 +14,8 @@ pub struct Config {
     greet_channel: Option<ChannelId>,
     #[serde(default)]
     greet_message: Option<String>,
+    #[serde(default)]
+    log_channel: Option<ChannelId>,
 }
 
 const CONFIG: &str = "config.json";
@@ -64,8 +66,17 @@ impl Config {
         Config::serialize(self)
     }
 
-    pub fn greet_message(&self) -> Option<&str> {
+    pub fn greet_channel_message(&self) -> Option<&str> {
         self.greet_message.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn set_log_channel(&mut self, ch: Option<ChannelId>) -> Result<(), Box<dyn error::Error>> {
+        self.log_channel = ch;
+        Config::serialize(self)
+    }
+
+    pub fn log_channel(&self) -> Option<ChannelId> {
+        self.log_channel
     }
 }
 
