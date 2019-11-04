@@ -259,8 +259,8 @@ pub fn log_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command("set")]
-#[description("Check the current log channel")]
-#[usage("")]
+#[description("Set the logging channel")]
+#[usage("#channel_mention")]
 pub fn log_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>().ok();
     let share_map = ctx.data.read();
