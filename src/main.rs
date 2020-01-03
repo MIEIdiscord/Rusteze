@@ -56,12 +56,12 @@ impl EventHandler for Handler {
             ch.send_message(&ctx, |m| {
                 m.content(user.mention());
                 m.embed(|e| {
-                    e.title("Bem vindo ao servidor de MIEI!");
+                    e.title("Bem-vindo(a) ao servidor de MIEI!");
                     e.description(greet_message);
                     e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
                     e.colour(Colour::from_rgb(0, 0, 0));
                     e.footer( |f| {
-                        f.text("Qualquer dúvida sobre o bot podes usar $man para saberes o que podes fazer.");
+                        f.text("Se tiveres alguma dúvida sobre o bot podes usar o comando $man para saberes o que podes fazer.");
                         f
                     });
                     e
