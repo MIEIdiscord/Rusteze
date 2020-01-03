@@ -52,8 +52,8 @@ pub fn material(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-#[description("Permite a um aluno juntar-se às salas das cadeiras.")]
-#[usage("[CADEIRA|ANO|SEMESTRE, ...]")]
+#[description("Permite a alguém juntar-se às salas das cadeiras.")]
+#[usage("[CADEIRA|ANO|ANOSEMESTRE, ...]")]
 #[example("Algebra PI")]
 #[example("1ano")]
 #[example("2ano1sem")]
@@ -82,7 +82,7 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     if names.is_empty() {
         msg.channel_id
-            .say(&ctx.http, "Não foste adicionado a nenhuma cadeira nova")?;
+            .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
     } else {
         msg.channel_id
             .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
@@ -91,8 +91,8 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command]
-#[description("Permite a um aluno sair das salas das cadeiras.")]
-#[usage("[CADEIRA|ANO|SEMESTRE, ...]")]
+#[description("Permite a alguém sair das salas das cadeiras.")]
+#[usage("[CADEIRA|ANO|ANOSEMESTRE, ...]")]
 #[example("Algebra PI")]
 #[example("1ano")]
 #[example("2ano1sem")]
@@ -114,10 +114,10 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         .transpose()?;
     if names.is_empty() {
         msg.channel_id
-            .say(&ctx.http, "Não foste removido de nenhuma cadeira")?;
+            .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")?;
     } else {
         msg.channel_id
-            .say(&ctx.http, format!("Stoped Studying: {}", names.join(" ")))?;
+            .say(&ctx.http, format!("Stopped studying: {}", names.join(" ")))?;
     }
     Ok(())
 }
@@ -132,7 +132,7 @@ group!({
 
 #[command]
 #[description("Cria salas das cadeiras especificadas, associadas ao ano especificado.")]
-#[usage("ano semester [CADEIRA, ...]")]
+#[usage("ano semestre [CADEIRA, ...]")]
 #[min_args(3)]
 #[required_permissions(ADMINISTRATOR)]
 pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
@@ -147,7 +147,7 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             .collect::<Result<Vec<&str>, Box<dyn std::error::Error>>>()?;
         if new_roles.is_empty() {
             msg.channel_id
-                .say(&ctx.http, "Não foram criadas novas cadeiras")?;
+                .say(&ctx.http, "Não foram criadas novas cadeiras.")?;
         } else {
             msg.channel_id.say(
                 &ctx.http,
@@ -172,7 +172,7 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             .collect::<Vec<&str>>();
         if rm_roles.is_empty() {
             msg.channel_id
-                .say(&ctx.http, "Não foram removidas cadeiras")?;
+                .say(&ctx.http, "Não foram removidas cadeiras.")?;
         } else {
             msg.channel_id.say(
                 &ctx.http,
@@ -194,8 +194,8 @@ pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
         m.embed(|e| {
             e.title("Informação sobre as cadeiras disponíveis");
             e.description(
-                "`$study CADEIRA` junta-te às salas das cadeiras
-`$study Xano` junta-te a todas as cadeiras de um ano",
+                "`$study CADEIRA` junta-te às salas das cadeiras.
+`$study Xano` junta-te a todas as cadeiras de um ano.",
             );
             e.fields(
                 roles
