@@ -2,8 +2,8 @@
 use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
-        macros::{command, group},
-        Args, CommandResult,
+        macros::{check, command, group},
+        Args, CheckResult, CommandOptions, CommandResult, Reason,
     },
     http::{CacheHttp, Http},
     model::{
@@ -24,8 +24,8 @@ use std::{
 group!({
     name: "cesium",
     options: {
-        allowed_roles: ["CeSIUM", "Sudoers", "Mods"],
         prefix: "cesium",
+        checks: [is_mod_or_cesium],
     },
     commands: [add, join, remove],
 });
@@ -34,6 +34,31 @@ const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
 const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
 const MODS_ROLS: RoleId = RoleId(618572138718298132);
 const CHANNELS: &str = "cesium_channels.json";
+
+#[check]
+#[name = "is_mod_or_cesium"]
+pub fn is_mod_or_cesium(
+    _: &mut Context,
+    msg: &Message,
+    _: &mut Args,
+    _: &CommandOptions,
+) -> CheckResult {
+    msg.member
+        .as_ref()
+        .and_then(|m| {
+            if [RoleId(418842665061318676), RoleId(618572138718298132)]
+                .iter()
+                .any(|r| m.roles.contains(r))
+            {
+                Some(CheckResult::Success)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(CheckResult::Failure(Reason::User(
+            "You don't have permission to use that command!".to_string(),
+        )))
+}
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 pub struct ChannelMapping {
