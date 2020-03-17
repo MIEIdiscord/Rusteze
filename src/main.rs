@@ -4,7 +4,7 @@ pub mod config;
 
 use crate::{
     channels::{read_courses, MiEI},
-    commands::{admin::ADMIN_GROUP, cesium::CESIUM_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
+    commands::{admin::ADMIN_GROUP, cesium::{ChannelMapping, CESIUM_GROUP}, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
     config::Config,
 };
 use serenity::{
@@ -127,6 +127,7 @@ fn main() {
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
         let config = Config::new().unwrap_or_default();
         data.insert::<Config>(Arc::new(RwLock::new(config)));
+        data.insert::<ChannelMapping>(Arc::new(RwLock::new(ChannelMapping::load().unwrap())));
     }
     client.with_framework(
         StandardFramework::new()
