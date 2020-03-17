@@ -22,8 +22,8 @@ group!({
     commands: [add, remove],
 });
 
-const CESIUM_CATEGORY: ChannelId = ChannelId(418842665061318676);
-const CESIUM_ROLE: RoleId = RoleId(689456522157359104);
+const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
+const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
 
 #[command]
 #[description("Adds a new private room")]
