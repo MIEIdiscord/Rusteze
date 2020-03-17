@@ -43,7 +43,8 @@ pub fn is_mod_or_cesium(
     _: &mut Args,
     _: &CommandOptions,
 ) -> CheckResult {
-    msg.member
+    dbg!(msg
+        .member
         .as_ref()
         .and_then(|m| {
             if [RoleId(418842665061318676), RoleId(618572138718298132)]
@@ -57,7 +58,7 @@ pub fn is_mod_or_cesium(
         })
         .unwrap_or(CheckResult::Failure(Reason::User(
             "You don't have permission to use that command!".to_string(),
-        )))
+        ))))
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
