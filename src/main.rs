@@ -213,5 +213,5 @@ fn is_admin(ctx: &mut Context, msg: &Message) -> bool {
 }
 
 fn is_cesium_cmd(msg: &Message) -> bool {
-    dbg!(msg.content.split_whitespace().next()) == Some("cesium")
+    dbg!(msg.content.split_whitespace().next()) == Some("$cesium")
 }
