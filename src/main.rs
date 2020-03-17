@@ -4,7 +4,11 @@ pub mod config;
 
 use crate::{
     channels::{read_courses, MiEI},
-    commands::{admin::ADMIN_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
+    commands::{
+        admin::ADMIN_GROUP,
+        cesium::{ChannelMapping, CESIUM_GROUP},
+        COURSES_GROUP, MISC_GROUP, STUDY_GROUP,
+    },
     config::Config,
 };
 use serenity::{
@@ -127,11 +131,14 @@ fn main() {
         data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
         let config = Config::new().unwrap_or_default();
         data.insert::<Config>(Arc::new(RwLock::new(config)));
+        data.insert::<ChannelMapping>(Arc::new(RwLock::new(ChannelMapping::load().unwrap())));
     }
     client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("$"))
-            .before(|ctx, msg, _message| valid_channel(ctx, msg) || is_admin(ctx, msg))
+            .before(|ctx, msg, _message| {
+                valid_channel(ctx, msg) || is_admin(ctx, msg) || is_cesium_cmd(msg)
+            })
             .after(|ctx, msg, cmd_name, error| match error {
                 Ok(()) => eprintln!("Processed command '{}' for user '{}'", cmd_name, msg.author),
                 Err(why) => {
@@ -162,6 +169,7 @@ fn main() {
             .group(&COURSES_GROUP)
             .group(&ADMIN_GROUP)
             .group(&MISC_GROUP)
+            .group(&CESIUM_GROUP)
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {
@@ -202,4 +210,8 @@ fn is_admin(ctx: &mut Context, msg: &Message) -> bool {
         .and_then(|u| u.permissions(&ctx).ok())
         .map(|p| p.administrator())
         .unwrap_or(false)
+}
+
+fn is_cesium_cmd(msg: &Message) -> bool {
+    msg.content.split_whitespace().next() == Some("$cesium")
 }
