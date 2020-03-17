@@ -4,7 +4,7 @@ pub mod config;
 
 use crate::{
     channels::{read_courses, MiEI},
-    commands::{admin::ADMIN_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
+    commands::{admin::ADMIN_GROUP, cesium::CESIUM_GROUP, COURSES_GROUP, MISC_GROUP, STUDY_GROUP},
     config::Config,
 };
 use serenity::{
@@ -162,6 +162,7 @@ fn main() {
             .group(&COURSES_GROUP)
             .group(&ADMIN_GROUP)
             .group(&MISC_GROUP)
+            .group(&CESIUM_GROUP)
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {

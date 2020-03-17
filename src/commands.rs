@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod cesium;
 
 use crate::channels::MiEI;
 use serenity::{
