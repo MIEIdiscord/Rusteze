@@ -16,14 +16,14 @@ use std::iter::once;
 group!({
     name: "cesium",
     options: {
-        allowed_roles: ["Cesium", "Sudoer"],
+        allowed_roles: ["CeSIUM", "Sudoers", "Mods"],
         prefix: "cesium",
     },
     commands: [add, remove],
 });
 
-const CESIUM_CATEGORY: &str = "418798551317872660";
-const CESIUM_ROLE: &str = "689456522157359104";
+const CESIUM_CATEGORY: ChannelId = ChannelId(418842665061318676);
+const CESIUM_ROLE: RoleId = RoleId(689456522157359104);
 
 #[command]
 #[description("Adds a new private room")]
@@ -35,7 +35,7 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     guild_id.create_channel(&ctx, |channel| {
         channel
             .name(format!("mentor-channel-{}", random::<u8>()))
-            .category(CESIUM_CATEGORY.parse::<ChannelId>().unwrap())
+            .category(CESIUM_CATEGORY)
             .permissions({
                 args.iter::<UserId>()
                     .map(|ur| ur.unwrap())
@@ -45,14 +45,14 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                         deny: Permissions::empty(),
                     })
                     .chain(once(PermissionOverwrite {
+                        kind: PermissionOverwriteType::Role(CESIUM_ROLE),
+                        allow: Permissions::READ_MESSAGES,
+                        deny: Permissions::empty(),
+                    }))
+                    .chain(once(PermissionOverwrite {
                         kind: PermissionOverwriteType::Role(RoleId(guild_id.0)),
                         allow: Permissions::empty(),
                         deny: Permissions::READ_MESSAGES,
-                    }))
-                    .chain(once(PermissionOverwrite {
-                        kind: PermissionOverwriteType::Role(CESIUM_ROLE.parse().unwrap()),
-                        allow: Permissions::READ_MESSAGES,
-                        deny: Permissions::empty(),
                     }))
             })
     })?;
@@ -64,7 +64,6 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[description("Removes a new private room")]
 #[usage("channel_id")]
 pub fn remove(ctx: &mut Context, _: &Message, mut args: Args) -> CommandResult {
-    let cesium_category = CESIUM_CATEGORY.parse::<ChannelId>().unwrap();
     args.iter::<ChannelId>()
         .filter(|cr| {
             cr.as_ref()
@@ -75,7 +74,7 @@ pub fn remove(ctx: &mut Context, _: &Message, mut args: Args) -> CommandResult {
                             if let Channel::Guild(ch) = c {
                                 ch.read()
                                     .category_id
-                                    .map(|c| c == cesium_category)
+                                    .map(|c| c == CESIUM_CATEGORY)
                                     .unwrap_or(false)
                             } else {
                                 false
