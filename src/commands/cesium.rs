@@ -1,3 +1,4 @@
+use rand::random;
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -11,12 +12,12 @@ use serenity::{
     prelude::*,
 };
 use std::iter::once;
-use rand::random;
 
 group!({
     name: "cesium",
     options: {
-        allowed_roles: ["Cesium", "Sudoer"]
+        allowed_roles: ["Cesium", "Sudoer"],
+        prefix: "cesium",
     },
     commands: [add, remove],
 });
@@ -64,8 +65,7 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[usage("channel_id")]
 pub fn remove(ctx: &mut Context, _: &Message, mut args: Args) -> CommandResult {
     let cesium_category = CESIUM_CATEGORY.parse::<ChannelId>().unwrap();
-    args
-        .iter::<ChannelId>()
+    args.iter::<ChannelId>()
         .filter(|cr| {
             cr.as_ref()
                 .map_err(|_| ())
