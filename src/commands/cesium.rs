@@ -32,7 +32,8 @@ group!({
 
 const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
 const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
-const MODS_ROLS: RoleId = RoleId(618572138718298132);
+const MODS_ROLE: RoleId = RoleId(618572138718298132);
+const MENTOR_ROLE: RoleId = RoleId(688760837980291120);
 const CHANNELS: &str = "cesium_channels.json";
 
 #[check]
@@ -46,7 +47,7 @@ pub fn is_mod_or_cesium(
     msg.member
         .as_ref()
         .and_then(|m| {
-            if [RoleId(418842665061318676), RoleId(618572138718298132)]
+            if [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
                 .iter()
                 .any(|r| m.roles.contains(r))
             {
@@ -106,7 +107,12 @@ impl ChannelMapping {
                 deny: Permissions::empty(),
             }))
             .chain(once(PermissionOverwrite {
-                kind: PermissionOverwriteType::Role(MODS_ROLS),
+                kind: PermissionOverwriteType::Role(MODS_ROLE),
+                allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                deny: Permissions::empty(),
+            }))
+            .chain(once(PermissionOverwrite {
+                kind: PermissionOverwriteType::Role(MENTOR_ROLE),
                 allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
                 deny: Permissions::empty(),
             }))
