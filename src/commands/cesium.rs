@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
@@ -9,6 +10,7 @@ use serenity::{
     model::{
         channel::{ChannelType, Message, PermissionOverwrite, PermissionOverwriteType},
         id::{ChannelId, GuildId, RoleId, UserId},
+        misc::Mentionable,
         permissions::Permissions,
     },
     prelude::*,
@@ -95,8 +97,10 @@ impl ChannelMapping {
         C: CacheHttp + AsRef<Http> + Copy,
         U: Iterator<Item = UserId>,
     {
-        let users: Vec<_> = users
-            .map(|u| PermissionOverwrite {
+        let user_ids = users.collect::<Vec<_>>();
+        let users: Vec<_> = user_ids
+            .iter()
+            .map(|&u| PermissionOverwrite {
                 kind: PermissionOverwriteType::Member(u),
                 allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
                 deny: Permissions::empty(),
@@ -138,8 +142,14 @@ impl ChannelMapping {
         })?;
         text.say(
             &ctx,
-            "Este canal e temporário e será apagado no fim das sessões.\n
-Se quiserem guardar alguma coisa que aqui seja escrita façam-no o mais cedo possível",
+            format!(
+                "Este canal e temporário e será apagado no fim das sessões.\n
+Se quiserem guardar alguma coisa que aqui seja escrita façam-no o mais cedo possível.\n
+Bem vindos aos vosso canto privado! {}",
+                user_ids
+                    .iter()
+                    .format_with(" ", |u, f| f(&format_args!("{}", u.mention())))
+            ),
         )?;
         self.last_number += 1;
         self.channels.insert(text.id, voice.id);
