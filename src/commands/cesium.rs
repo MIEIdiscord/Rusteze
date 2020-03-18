@@ -92,7 +92,7 @@ impl ChannelMapping {
 
     fn create_channel<C, U>(&mut self, guild_id: GuildId, ctx: C, users: U) -> CommandResult
     where
-        C: CacheHttp + AsRef<Http>,
+        C: CacheHttp + AsRef<Http> + Copy,
         U: Iterator<Item = UserId>,
     {
         let users: Vec<_> = users
@@ -122,20 +122,25 @@ impl ChannelMapping {
                 deny: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
             }))
             .collect();
-        let text = guild_id.create_channel(&ctx, |channel| {
+        let text = guild_id.create_channel(ctx, |channel| {
             channel
                 .name(format!("mentor-channel-{}", self.last_number))
                 .kind(ChannelType::Text)
                 .category(CESIUM_CATEGORY)
                 .permissions(users.iter().map(|p| p.clone()))
         })?;
-        let voice = guild_id.create_channel(&ctx, |channel| {
+        let voice = guild_id.create_channel(ctx, |channel| {
             channel
                 .name(format!("mentor-channel-{}", self.last_number))
                 .kind(ChannelType::Voice)
                 .category(CESIUM_CATEGORY)
                 .permissions(users.into_iter())
         })?;
+        text.say(
+            &ctx,
+            "Este canal e temporiario e sera apagado no fim das sessoes.\n
+Se quiserem guardar alguma coisa que aqui seja escrita facam-no o mais cedo possivel",
+        )?;
         self.last_number += 1;
         self.channels.insert(text.id, voice.id);
         self.write_channels()?;
