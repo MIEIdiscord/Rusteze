@@ -138,8 +138,8 @@ impl ChannelMapping {
         })?;
         text.say(
             &ctx,
-            "Este canal e temporiario e sera apagado no fim das sessoes.\n
-Se quiserem guardar alguma coisa que aqui seja escrita facam-no o mais cedo possivel",
+            "Este canal e temporário e será apagado no fim das sessões.\n
+Se quiserem guardar alguma coisa que aqui seja escrita façam-no o mais cedo possível",
         )?;
         self.last_number += 1;
         self.channels.insert(text.id, voice.id);
