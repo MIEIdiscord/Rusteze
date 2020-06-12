@@ -28,7 +28,7 @@ group!({
 #[command]
 #[description("Teste de conectividade entre o Bot e os servidores do Discord.")]
 pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id.say(&ctx.http, "Pong but in :rust:!")?;
+    msg.channel_id.say(&ctx.http, "Pong but in <:rust:530449316607688724>!")?;
     Ok(())
 }
 
