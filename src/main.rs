@@ -127,11 +127,9 @@ fn main() {
         {
             data.insert::<UpdateNotify>(Arc::new(id));
         }
-        let roles = read_courses().unwrap_or_default();
-        data.insert::<MiEI>(Arc::new(RwLock::new(roles)));
-        let config = Config::new().unwrap_or_default();
-        data.insert::<Config>(Arc::new(RwLock::new(config)));
-        data.insert::<ChannelMapping>(Arc::new(RwLock::new(ChannelMapping::load().unwrap())));
+        data.insert::<MiEI>(Arc::new(RwLock::new(read_courses().unwrap_or_default())));
+        data.insert::<Config>(Arc::new(RwLock::new(Config::new().unwrap_or_default())));
+        data.insert::<ChannelMapping>(Arc::new(RwLock::new(ChannelMapping::load().unwrap_or_default())));
     }
     client.with_framework(
         StandardFramework::new()

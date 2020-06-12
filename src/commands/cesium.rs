@@ -71,7 +71,7 @@ pub struct ChannelMapping {
 
 impl ChannelMapping {
     pub fn load() -> io::Result<Self> {
-        Ok(serde_json::from_reader(File::open(CHANNELS)?).unwrap_or_default())
+        Ok(serde_json::from_reader(File::open(CHANNELS)?)?)
     }
 
     fn write_channels(&self) -> Result<(), io::Error> {
