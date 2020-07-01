@@ -1,5 +1,3 @@
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::framework::standard::CommandResult;
 use serenity::model::{
@@ -37,28 +35,30 @@ impl MiEI {
         Ok(())
     }
 
-    pub fn get_role_id<'a>(&'a self, role_name: &'a str) -> Vec<(&'a str, RoleId)> {
-        let years = &self.courses;
-        static REGEX: Lazy<Regex> =
-            Lazy::new(|| Regex::new("([0-9]+)(?i)ano([0-9]+)((?i)semestre|sem)").unwrap());
-        static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("([0-9])+((?i)ano)").unwrap());
-        if let Some(splits) = REGEX.captures(role_name) {
-            match years.get(&splits[1]) {
-                Some(x) => x.get_semester_roles(&splits[2]),
-                None => Vec::new(),
-            }
-        } else if let Some(splits) = YEAR_REGEX.captures(role_name) {
-            match years.get(&splits[1]) {
-                Some(x) => x.get_year_roles(),
-                None => Vec::new(),
-            }
-        } else {
-            years
-                .values()
-                .flat_map(|x| x.get_role(&role_name.to_uppercase()))
-                .map(|x| (role_name, x.role))
-                .collect::<Vec<(&str, RoleId)>>()
-        }
+    pub fn role_by_name<'a>(
+        &'a self,
+        role_name: &'a str,
+    ) -> Option<RoleId> {
+        let role_name_ = role_name.to_uppercase();
+        self.courses
+            .values()
+            .filter_map(move |x| x.get_role(&role_name_))
+            .map(|x| x.role)
+            .next()
+    }
+
+    pub fn roles_by_year(&self, year: &str) -> Option<impl Iterator<Item = (&str, RoleId)>> {
+        self.courses.get(year).map(Year::all_roles)
+    }
+
+    pub fn roles_by_year_and_semester(
+        &self,
+        year: &str,
+        semester: &str,
+    ) -> Option<impl Iterator<Item = (&str, RoleId)> + '_> {
+        self.courses
+            .get(year)
+            .and_then(|y| y.roles_by_semester(semester))
     }
 
     pub fn create_role<'a>(
@@ -183,22 +183,19 @@ impl Year {
             .any(|x| x.courses.contains_key(role_name))
     }
 
-    fn get_semester_roles(&self, semester: &str) -> Vec<(&str, RoleId)> {
-        match self.courses.get(semester) {
-            Some(x) => x
-                .courses
-                .iter()
-                .map(|(a, z)| (a.as_str(), z.role))
-                .collect::<Vec<(&str, RoleId)>>(),
-            None => Vec::new(),
-        }
-    }
-
-    fn get_year_roles(&self) -> Vec<(&str, RoleId)> {
+    fn all_roles(&self) -> impl Iterator<Item = (&str, RoleId)> + '_ {
         self.courses
             .values()
             .flat_map(|x| x.courses.iter().map(|(a, z)| (a.as_str(), z.role)))
-            .collect::<Vec<(&str, RoleId)>>()
+    }
+
+    fn roles_by_semester(
+        &self,
+        semester: &str,
+    ) -> Option<impl Iterator<Item = (&str, RoleId)> + '_> {
+        self.courses
+            .get(semester)
+            .map(|x| x.courses.iter().map(|(a, c)| (a.as_str(), c.role)))
     }
 
     fn get_role<'a>(&self, role_name: &'a str) -> Option<&Course> {

@@ -2,6 +2,8 @@ pub mod admin;
 pub mod cesium;
 
 use crate::{channels::MiEI, util::minecraft_server_get};
+use once_cell::sync::Lazy;
+use regex::{Regex, RegexBuilder};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -73,30 +75,16 @@ pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let mut names = Vec::new();
-    let ids = args
-        .raw()
-        .map(|x| roles.get_role_id(x))
-        .flatten()
-        .filter(|(_, b)| {
-            msg.author
-                .has_role(&ctx, msg.guild_id.unwrap(), b)
-                .map(|x| !x)
-                .unwrap_or(false)
-        })
-        .map(|(a, b)| {
-            names.push(a);
-            b
-        })
-        .collect::<Vec<RoleId>>();
-    msg.member(&ctx.cache)
-        .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
-        .transpose()?;
-
+    let (ids, names) = parse_study_args(args.rest(), &*roles);
+    eprintln!("ids: {:?}", ids);
+    eprintln!("names: {:?}", names);
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
     } else {
+        msg.member(&ctx.cache)
+            .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
+            .transpose()?;
         msg.channel_id
             .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
     }
@@ -112,29 +100,58 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let mut names = Vec::new();
-    let ids = args
-        .raw()
-        .map(|x| roles.get_role_id(x))
-        .flatten()
-        .map(|(a, b)| {
-            names.push(a);
-            b
-        })
-        .collect::<Vec<RoleId>>();
-    msg.member(&ctx.cache)
-        .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
-        .transpose()?;
+    let (ids, names) = parse_study_args(args.rest(), &*roles);
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")?;
     } else {
+        msg.member(&ctx.cache)
+            .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
+            .transpose()?;
         msg.channel_id
             .say(&ctx.http, format!("Stopped studying: {}", names.join(" ")))?;
     }
     Ok(())
 }
 
+fn parse_study_args<'args>(args: &'args str, roles: &'args MiEI) -> (Vec<RoleId>, Vec<&'args str>) {
+    static REGEX: Lazy<Regex> = Lazy::new(|| {
+        RegexBuilder::new(concat!(
+            r"(",
+            r"(?P<year>\d+) *ano( *(?P<sem>\d+) *sem(estre)?)?|",
+            r"(?P<course>\S+)",
+            r")*"
+        ))
+        .case_insensitive(true)
+        .build()
+        .unwrap()
+    });
+    let mut names = Vec::new();
+    let mut ids = Vec::new();
+    let mut push = |(n, r)| {
+        ids.push(r);
+        names.push(n);
+    };
+    // I know it's fucking horrible but I like it
+    for c in REGEX.captures_iter(args) {
+        c.name("course") // if it's a course
+            .map(|course| course.as_str())
+            .and_then(|c| roles.role_by_name(c).map(|r| (c, r)))
+            .map(&mut push)
+            .or_else(|| {
+                // else if it's a year
+                c.name("year").map(|y| y.as_str()).and_then(|year| {
+                    c.name("sem") // if it has a semester
+                        .map(|sem| sem.as_str())
+                        .and_then(|sem| roles.roles_by_year_and_semester(year, sem))
+                        .map(|r| r.for_each(&mut push))
+                        // else
+                        .or_else(|| roles.roles_by_year(year).map(|r| r.for_each(&mut push)))
+                })
+            });
+    }
+    (ids, names)
+}
 group!({
     name: "courses",
     options: {
