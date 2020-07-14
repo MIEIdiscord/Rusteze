@@ -70,6 +70,11 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
         .unwrap()
     });
     let mut args = args.raw();
+    const ADMIN_CHANNELS: [ChannelId; 3] = [
+        ChannelId(425980901344935937),
+        ChannelId(425982167529553921),
+        ChannelId(701128993172226088),
+    ];
     match (args.next(), args.next()) {
         (Some(name), Some(uuid)) => {
             if !UUID.is_match(uuid) {
@@ -77,9 +82,8 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
             }
             let output = Fork::new("./whitelist.sh").args(&[name, uuid]).output()?;
             if output.status.success() {
-                msg.channel_id.say(&ctx,
-                    "Whitelist changed.
-Visit <https://panel.pebblehost.com/server/console/125846> and `whitelist reload`")?;
+                msg.channel_id
+                    .say(&ctx, "Whitelist changed and reloaded!")?;
                 Ok(())
             } else {
                 msg.channel_id.say(&ctx, "Whitelist change failed:")?;
@@ -89,10 +93,14 @@ Visit <https://panel.pebblehost.com/server/console/125846> and `whitelist reload
             }
         }
         _ => {
-            msg.channel_id.say(
-                &ctx,
-                "Visit <https://panel.pebblehost.com/server/console/125846> to get the uuids",
-            )?;
+            if ADMIN_CHANNELS.contains(&msg.channel_id) {
+                msg.channel_id.say(
+                    &ctx,
+                    "Visit <https://panel.pebblehost.com/server/console/125846> to get the uuids",
+                )?;
+            } else {
+                msg.channel_id.say(&ctx, "Invalid arguments")?;
+            }
             Ok(())
         }
     }
