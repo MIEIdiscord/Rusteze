@@ -15,17 +15,13 @@ use serenity::{
 };
 use std::collections::BTreeMap;
 
-group!({
-    name: "study",
-    options: {},
-    commands: [study, unstudy],
-});
+#[group]
+#[commands(study, unstudy)]
+struct Study;
 
-group!({
-    name: "Misc",
-    options: {},
-    commands: [online, ping, info, material],
-});
+#[group]
+#[commands(ping, info, material)]
+struct Misc;
 
 #[command]
 #[description("Teste de conectividade entre o Bot e os servidores do Discord.")]
@@ -76,8 +72,6 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
     let (ids, names) = parse_study_args(args.rest(), &*roles);
-    eprintln!("ids: {:?}", ids);
-    eprintln!("names: {:?}", names);
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
@@ -152,13 +146,11 @@ fn parse_study_args<'args>(args: &'args str, roles: &'args MiEI) -> (Vec<RoleId>
     }
     (ids, names)
 }
-group!({
-    name: "courses",
-    options: {
-        prefixes: ["courses"],
-    },
-    commands: [mk, rm, list],
-});
+
+#[group]
+#[prefixes("courses")]
+#[commands(mk, rm, list)]
+struct Courses;
 
 #[command]
 #[description("Cria salas das cadeiras especificadas, associadas ao ano especificado.")]

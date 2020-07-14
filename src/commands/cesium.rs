@@ -23,14 +23,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-group!({
-    name: "cesium",
-    options: {
-        prefix: "cesium",
-        checks: [is_mod_or_cesium],
-    },
-    commands: [add, join, remove],
-});
+#[group]
+#[commands(add, join, remove)]
+#[checks(is_mod_or_cesium)]
+#[prefixes("cesium")]
+struct Cesium;
 
 const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
 const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
