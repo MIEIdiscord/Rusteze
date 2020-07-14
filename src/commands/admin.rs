@@ -53,9 +53,10 @@ group!({
 
 #[command]
 #[description("Whitelists a player in the minecraft server")]
-#[usage("")]
+#[usage("name")]
 #[usage("name uuid")]
 #[aliases("wl")]
+#[min_args(1)]
 pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     static UUID: Lazy<Regex> = Lazy::new(|| {
         Regex::new(
@@ -70,31 +71,28 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
         .unwrap()
     });
     let mut args = args.raw();
-    match (args.next(), args.next()) {
-        (Some(name), Some(uuid)) => {
-            if !UUID.is_match(uuid) {
-                return Err("Invalid uuid".into());
-            }
-            let output = Fork::new("./whitelist.sh").args(&[name, uuid]).output()?;
-            if output.status.success() {
-                msg.channel_id.say(&ctx,
-                    "Whitelist changed.
-Visit <https://panel.pebblehost.com/server/console/125846> and `whitelist reload`")?;
-                Ok(())
-            } else {
-                msg.channel_id.say(&ctx, "Whitelist change failed:")?;
-                let mut error = String::from_utf8_lossy(&output.stdout);
-                error += String::from_utf8_lossy(&output.stderr);
-                Err(error.into())
-            }
-        }
-        _ => {
-            msg.channel_id.say(
-                &ctx,
-                "Visit <https://panel.pebblehost.com/server/console/125846> to get the uuids",
-            )?;
-            Ok(())
-        }
+    let name = args.next().expect("Min args 1");
+    let fork_args = match args.next() {
+        Some(uuid) if UUID.is_match(uuid) => vec![name, uuid],
+        Some(_) => return Err("Invalid uuid".into()),
+        None => vec![name],
+    };
+    let output = Fork::new("./whitelist.sh").args(fork_args).output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if output.status.success() {
+        eprintln!(
+            "WHITELIST COMMAND LOG:\nSTDOUT:\n{}\nSTDERR:\n{}",
+            stdout, stderr
+        );
+        msg.channel_id
+            .say(&ctx, "Whitelist changed and reloaded!")?;
+        Ok(())
+    } else {
+        msg.channel_id.say(&ctx, "Whitelist change failed:")?;
+        let mut stdout = stdout;
+        stdout += stderr;
+        Err(stdout.into())
     }
 }
 
