@@ -1,6 +1,7 @@
 use crate::config::Config;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use regex::Regex;
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -9,10 +10,12 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::*,
 };
-use std::os::unix::process::CommandExt;
-use std::process::Command as Fork;
-use std::str;
-use std::sync::{Mutex, TryLockError};
+use std::{
+    os::unix::process::CommandExt,
+    process::Command as Fork,
+    str,
+    sync::{Mutex, TryLockError},
+};
 
 group!({
     name: "Admin",
@@ -20,7 +23,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["sudo"],
     },
-    commands: [edit, update, say],
+    commands: [edit, update, say, whitelist],
     sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL],
 });
 
@@ -47,6 +50,53 @@ group!({
     },
     commands: [log_channel, log_channel_set]
 });
+
+#[command]
+#[description("Whitelists a player in the minecraft server")]
+#[usage("")]
+#[usage("name uuid")]
+#[aliases("wl")]
+pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    static UUID: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(
+            r"(?x)^
+            [A-Za-z0-9]{8}-
+            [A-Za-z0-9]{4}-
+            [A-Za-z0-9]{4}-
+            [A-Za-z0-9]{4}-
+            [A-Za-z0-9]{12}
+            $",
+        )
+        .unwrap()
+    });
+    let mut args = args.raw();
+    match (args.next(), args.next()) {
+        (Some(name), Some(uuid)) => {
+            if !UUID.is_match(uuid) {
+                return Err("Invalid uuid".into());
+            }
+            let output = Fork::new("./whitelist.sh").args(&[name, uuid]).output()?;
+            if output.status.success() {
+                msg.channel_id.say(&ctx,
+                    "Whitelist changed.
+Visit <https://panel.pebblehost.com/server/console/125846> and `whitelist reload`")?;
+                Ok(())
+            } else {
+                msg.channel_id.say(&ctx, "Whitelist change failed:")?;
+                let mut error = String::from_utf8_lossy(&output.stdout);
+                error += String::from_utf8_lossy(&output.stderr);
+                Err(error.into())
+            }
+        }
+        _ => {
+            msg.channel_id.say(
+                &ctx,
+                "Visit <https://panel.pebblehost.com/server/console/125846> to get the uuids",
+            )?;
+            Ok(())
+        }
+    }
+}
 
 #[command]
 #[description("Adds an allowed channel")]
