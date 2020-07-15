@@ -138,9 +138,9 @@ fn main() {
             .configure(|c| c.prefix("$"))
             .before(|ctx, msg, _message| {
                 valid_channel(ctx, msg)
+                    || is_mc_cmd(ctx, msg)
                     || is_admin(ctx, msg)
                     || is_cesium_cmd(msg)
-                    || is_mc_cmd(ctx, msg)
             })
             .after(|ctx, msg, cmd_name, error| match error {
                 Ok(()) => eprintln!("Processed command '{}' for user '{}'", cmd_name, msg.author),
@@ -220,7 +220,10 @@ fn is_cesium_cmd(msg: &Message) -> bool {
 }
 
 fn is_mc_cmd(ctx: &mut Context, msg: &Message) -> bool {
-    msg.content.trim().starts_with("online")
+    msg.content
+        .trim()
+        .trim_start_matches('$')
+        .starts_with("online")
         && msg
             .channel_id
             .name(&ctx)
