@@ -11,7 +11,7 @@ use serenity::{
     prelude::*,
     utils::Colour,
 };
-use std::collections::BTreeMap;
+use std::{process::Command as Fork, collections::BTreeMap};
 
 group!({
     name: "study",
@@ -22,7 +22,7 @@ group!({
 group!({
     name: "Misc",
     options: {},
-    commands: [ping, info, material],
+    commands: [online, ping, info, material],
 });
 
 #[command]
@@ -49,6 +49,17 @@ pub fn material(ctx: &mut Context, msg: &Message) -> CommandResult {
         &ctx.http,
         "**Este é o link para o material do curso** -> http://bit.ly/materialmiei",
     )?;
+    Ok(())
+}
+
+#[command]
+#[description("Shows the list of online players")]
+#[usage("")]
+pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let output = Fork::new("./server_do.sh").args(&["list"]).output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    msg.channel_id.say(&ctx, format!("{}{}", stdout, stderr))?;
     Ok(())
 }
 
