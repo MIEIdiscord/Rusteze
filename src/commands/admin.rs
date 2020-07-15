@@ -23,7 +23,7 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["sudo"],
     },
-    commands: [edit, update, say, whitelist],
+    commands: [edit, update, say, whitelist, mc],
     sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL],
 });
 
@@ -94,6 +94,21 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
         stdout += stderr;
         Err(stdout.into())
     }
+}
+
+#[command]
+#[description("Run a command as op on the server")]
+#[usage("command 1 ; command 2 ; ...")]
+#[min_args(1)]
+fn mc(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    for command in args.rest().split(";") {
+        let output = Fork::new("./server_do.sh").args(&[command.trim()]).output()?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        msg.channel_id
+            .say(&ctx, format!("`{}`: {}{}", command, stdout, stderr))?;
+    }
+    Ok(())
 }
 
 #[command]
