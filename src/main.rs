@@ -2,6 +2,7 @@ pub mod channels;
 mod commands;
 pub mod config;
 mod daemons;
+pub mod util;
 
 use crate::{
     channels::{read_courses, MiEI},

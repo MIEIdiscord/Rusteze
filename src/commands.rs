@@ -1,7 +1,7 @@
 pub mod admin;
 pub mod cesium;
 
-use crate::channels::MiEI;
+use crate::{channels::MiEI, util::minecraft_server_get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -11,7 +11,7 @@ use serenity::{
     prelude::*,
     utils::Colour,
 };
-use std::{process::Command as Fork, collections::BTreeMap};
+use std::collections::BTreeMap;
 
 group!({
     name: "study",
@@ -28,7 +28,8 @@ group!({
 #[command]
 #[description("Teste de conectividade entre o Bot e os servidores do Discord.")]
 pub fn ping(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id.say(&ctx.http, "Pong but in <:rust:530449316607688724>!")?;
+    msg.channel_id
+        .say(&ctx.http, "Pong but in <:rust:530449316607688724>!")?;
     Ok(())
 }
 
@@ -56,10 +57,10 @@ pub fn material(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[description("Shows the list of online players")]
 #[usage("")]
 pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let output = Fork::new("./server_do.sh").args(&["list"]).output()?;
+    let output = minecraft_server_get(&["list"])?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    msg.channel_id.say(&ctx, format!("{}{}", stdout, stderr))?;
+    msg.channel_id.say(&ctx, format!("{}\n{}", stdout, stderr))?;
     Ok(())
 }
 
