@@ -50,6 +50,11 @@ pub fn start_daemon_thread(
     daemons: Vec<Arc<RwLock<dyn Daemon + Send + Sync + 'static>>>,
     http: Arc<Http>,
 ) -> DaemonThread {
+    fn run(d: &dyn Daemon, http: &Http) {
+        let _ = d
+            .run(http)
+            .map_err(|e| eprintln!("Deamon '{}' failed: {:?}", d.name(), e));
+    }
     let list = daemons
         .iter()
         .map(|d| d.read().unwrap().name())
@@ -64,20 +69,12 @@ pub fn start_daemon_thread(
     let handle = thread::spawn(move || loop {
         match rx.try_recv() {
             Ok(DaemonThreadMsg::RunAll) => daemons.iter().for_each(|(_, d)| {
-                let _ = d
-                    .read()
-                    .unwrap()
-                    .run(&*http)
-                    .map_err(|e| eprintln!("Deamon failed: {}", e));
+                run(&*d.read().unwrap(), &*http);
             }),
             Ok(DaemonThreadMsg::RunOne(i)) => {
-                if let Some(d) = daemons.get(i) {
-                    let _ =
-                        d.1.read()
-                            .unwrap()
-                            .run(&*http)
-                            .map_err(|e| eprintln!("Deamon failed: {}", e));
-                }
+                daemons
+                    .get(i)
+                    .map(|(_, d)| run(&*d.read().unwrap(), &*http));
             }
             Err(TryRecvError::Empty) => {
                 let mut smallest_next_instant = None;
@@ -85,7 +82,7 @@ pub fn start_daemon_thread(
                 for (next_run, daemon) in &mut daemons {
                     if now >= *next_run {
                         let d = daemon.read().unwrap();
-                        let _ = d.run(&*http).map_err(|e| eprintln!("Deamon failed: {}", e));
+                        run(&*d, &*http);
                         *next_run = now + d.interval();
                     }
                     if smallest_next_instant.map(|s| *next_run < s).unwrap_or(true) {

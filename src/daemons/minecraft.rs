@@ -1,4 +1,5 @@
 use super::Daemon;
+use crate::util::minecraft_server_get;
 use serde::{Deserialize, Serialize};
 use serenity::{
     http::Http,
@@ -101,12 +102,12 @@ impl Daemon for Minecraft {
             Some(g) => g,
             None => return Ok(())
         };
-        let output = Fork::new("./server_do.sh").args(&["list"]).output()?;
+        let output = minecraft_server_get(&["list"])?;
         if output.status.success() {
             let online_list = std::str::from_utf8(&output.stdout)?;
             let index = online_list
                 .find(':')
-                .ok_or_else(|| format!("Invalid whitelist: {}", online_list))?;
+                .ok_or_else(|| format!("Invalid online list: {}", online_list))?;
             let (_, list) = online_list.split_at(index + ':'.len_utf8());
             for name in list.split(',').map(str::trim) {
                 match self.names.get(name) {
