@@ -1,6 +1,7 @@
 pub mod channels;
 mod commands;
 pub mod config;
+mod daemons;
 
 use crate::{
     channels::{read_courses, MiEI},
@@ -10,6 +11,7 @@ use crate::{
         COURSES_GROUP, MISC_GROUP, STUDY_GROUP,
     },
     config::Config,
+    daemons::minecraft::Minecraft,
 };
 use serenity::{
     framework::standard::{
@@ -132,6 +134,10 @@ fn main() {
         data.insert::<ChannelMapping>(Arc::new(RwLock::new(
             ChannelMapping::load().unwrap_or_default(),
         )));
+        let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
+        data.insert::<Minecraft>(Arc::clone(&mc));
+        let dt = daemons::start_daemon_thread(vec![mc], Arc::clone(&client.cache_and_http.http));
+        data.insert::<daemons::DaemonThread>(dt);
     }
     client.with_framework(
         StandardFramework::new()

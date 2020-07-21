@@ -7,7 +7,10 @@ use serenity::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::{channel::Message, id::ChannelId},
+    model::{
+        channel::Message,
+        id::{ChannelId, UserId},
+    },
     prelude::*,
 };
 use std::{
@@ -23,8 +26,27 @@ group!({
         required_permissions: [ADMINISTRATOR],
         prefixes: ["sudo"],
     },
-    commands: [edit, update, say, whitelist, mc],
-    sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL],
+    commands: [edit, update, say, whitelist],
+    sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL, MINECRAFT, DAEMONS],
+});
+
+group!({
+    name: "Minecraft",
+    options: {
+        required_permissions: [ADMINISTRATOR],
+        default_command: server_do,
+        prefixes: ["mc"],
+    },
+    commands: [server_do, pair, pair_guild_set],
+});
+
+group!({
+    name: "Daemons",
+    options: {
+        required_permissions: [ADMINISTRATOR],
+        prefixes: ["daemons", "deamons"],
+    },
+    commands: [daemon_now, daemon_list],
 });
 
 group!({
@@ -100,14 +122,80 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
 #[description("Run a command as op on the server")]
 #[usage("command 1 ; command 2 ; ...")]
 #[min_args(1)]
-fn mc(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn server_do(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     for command in args.rest().split(";") {
-        let output = Fork::new("./server_do.sh").args(&[command.trim()]).output()?;
+        let output = Fork::new("./server_do.sh")
+            .args(&[command.trim()])
+            .output()?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         msg.channel_id
             .say(&ctx, format!("`{}`: {}{}", command, stdout, stderr))?;
     }
+    Ok(())
+}
+
+#[command]
+#[description("Associate a minecraft username with the discord's username")]
+#[usage("minecraft_nickname @mention")]
+#[min_args(2)]
+fn pair(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let nick = args.single::<String>()?;
+    let user = args.single::<UserId>()?;
+    let share_map = ctx.data.write();
+    share_map
+        .get::<crate::daemons::minecraft::Minecraft>()
+        .unwrap()
+        .write()
+        .unwrap()
+        .pair(nick, user)?;
+    msg.channel_id.say(&ctx, "User paired")?;
+    Ok(())
+}
+
+#[command]
+#[description("Set's this guild as the one to use for the minecraft daemon")]
+#[usage("")]
+fn pair_guild_set(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let share_map = ctx.data.write();
+    share_map
+        .get::<crate::daemons::minecraft::Minecraft>()
+        .unwrap()
+        .write()
+        .unwrap()
+        .guild_id = msg.guild_id;
+    msg.channel_id.say(&ctx, "User paired")?;
+    Ok(())
+}
+#[command("list")]
+#[description("List current daemons")]
+#[usage("")]
+fn daemon_list(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let share_map = ctx.data.read();
+    msg.channel_id.say(
+        &ctx,
+        format!(
+            "{:?}",
+            share_map
+                .get::<crate::daemons::DaemonThread>()
+                .unwrap()
+                .list
+        ),
+    )?;
+    Ok(())
+}
+
+#[command("now")]
+#[description("Runs all or one daemon now")]
+#[usage("[number]")]
+fn daemon_now(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let share_map = ctx.data.read();
+    let daemon_t = share_map.get::<crate::daemons::DaemonThread>().unwrap();
+    match args.single::<usize>() {
+        Ok(u) => daemon_t.run_one(u)?,
+        Err(_) => daemon_t.run_all()?,
+    }
+    msg.channel_id.say(&ctx, "Done")?;
     Ok(())
 }
 
