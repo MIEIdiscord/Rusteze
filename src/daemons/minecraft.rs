@@ -16,7 +16,7 @@ use std::{
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Minecraft {
-    pub guild_id: Option<GuildId>,
+    guild_id: Option<GuildId>,
     names: HashMap<String, UserId>,
 }
 
@@ -33,6 +33,11 @@ impl Minecraft {
 
     pub fn pair(&mut self, name: String, user: UserId) -> Result<(), std::io::Error> {
         self.names.insert(name, user);
+        self.save()
+    }
+
+    pub fn set_guild_id(&mut self, gid: GuildId) -> Result<(), std::io::Error> {
+        self.guild_id = Some(gid);
         self.save()
     }
 }
@@ -102,7 +107,7 @@ impl Daemon for Minecraft {
             let index = online_list
                 .find(':')
                 .ok_or_else(|| format!("Invalid whitelist: {}", online_list))?;
-            let (_, list) = online_list.split_at(index);
+            let (_, list) = online_list.split_at(index + ':'.len_utf8());
             for name in list.split(',').map(str::trim) {
                 match self.names.get(name) {
                     Some(uuid) => {

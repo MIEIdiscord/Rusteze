@@ -16,6 +16,7 @@ pub trait Daemon {
     fn name(&self) -> String;
 }
 
+#[derive(Debug)]
 pub enum DaemonThreadMsg {
     RunAll,
     RunOne(usize),
@@ -45,7 +46,6 @@ impl serenity::prelude::TypeMapKey for DaemonThread {
     type Value = DaemonThread;
 }
 
-
 pub fn start_daemon_thread(
     daemons: Vec<Arc<RwLock<dyn Daemon + Send + Sync + 'static>>>,
     http: Arc<Http>,
@@ -57,10 +57,7 @@ pub fn start_daemon_thread(
     let (sx, rx) = mpsc::sync_channel(512);
     let mut daemons = daemons
         .into_iter()
-        .map(|d| {
-            let next_run = Instant::now() + d.read().unwrap().interval();
-            (next_run, d)
-        })
+        .map(|d| (Instant::now(), d))
         .collect::<Vec<_>>();
 
     let mut next_global_run = None;
@@ -74,12 +71,13 @@ pub fn start_daemon_thread(
                     .map_err(|e| eprintln!("Deamon failed: {}", e));
             }),
             Ok(DaemonThreadMsg::RunOne(i)) => {
-                let _ = daemons[i]
-                    .1
-                    .read()
-                    .unwrap()
-                    .run(&*http)
-                    .map_err(|e| eprintln!("Deamon failed: {}", e));
+                if let Some(d) = daemons.get(i) {
+                    let _ =
+                        d.1.read()
+                            .unwrap()
+                            .run(&*http)
+                            .map_err(|e| eprintln!("Deamon failed: {}", e));
+                }
             }
             Err(TryRecvError::Empty) => {
                 let mut smallest_next_instant = None;

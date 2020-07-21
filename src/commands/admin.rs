@@ -5,7 +5,7 @@ use regex::Regex;
 use serenity::{
     framework::standard::{
         macros::{command, group},
-        Args, CommandResult,
+        ArgError, Args, CommandResult,
     },
     model::{
         channel::Message,
@@ -158,15 +158,21 @@ fn pair(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[usage("")]
 fn pair_guild_set(ctx: &mut Context, msg: &Message) -> CommandResult {
     let share_map = ctx.data.write();
-    share_map
-        .get::<crate::daemons::minecraft::Minecraft>()
-        .unwrap()
-        .write()
-        .unwrap()
-        .guild_id = msg.guild_id;
-    msg.channel_id.say(&ctx, "User paired")?;
+    match msg.guild_id {
+        Some(gid) => {
+            share_map
+                .get::<crate::daemons::minecraft::Minecraft>()
+                .unwrap()
+                .write()
+                .unwrap()
+                .set_guild_id(gid)?;
+            msg.channel_id.say(&ctx, "Guild id set")?
+        }
+        None => msg.channel_id.say(&ctx, "Couldn't find guild id")?,
+    };
     Ok(())
 }
+
 #[command("list")]
 #[description("List current daemons")]
 #[usage("")]
@@ -192,8 +198,10 @@ fn daemon_now(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult
     let share_map = ctx.data.read();
     let daemon_t = share_map.get::<crate::daemons::DaemonThread>().unwrap();
     match args.single::<usize>() {
-        Ok(u) => daemon_t.run_one(u)?,
-        Err(_) => daemon_t.run_all()?,
+        Ok(u) if u < daemon_t.list.len() => daemon_t.run_one(u)?,
+        Ok(_) => return Err("Index out of bounds".into()),
+        Err(ArgError::Eos) => daemon_t.run_all()?,
+        Err(_) => return Err("Invalid index".into()),
     }
     msg.channel_id.say(&ctx, "Done")?;
     Ok(())
