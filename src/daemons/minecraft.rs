@@ -52,6 +52,7 @@ enum Color {
     Red,
     Cyan,
     Orange,
+    Black,
     Yellow,
     Blue,
     Green,
@@ -68,6 +69,7 @@ impl Color {
             (0x34, 0x98, 0xdb) => Some(Self::Blue),
             (0x2e, 0xcc, 0x71) => Some(Self::Green),
             (0x84, 0x3d, 0xa4) => Some(Self::Purple),
+            (0x01, 0x01, 0x01) => Some(Self::Black),
             _ => None,
         }
     }
@@ -83,6 +85,7 @@ impl Display for Color {
             Self::Blue => "3ano",
             Self::Green => "2ano",
             Self::Purple => "1ano",
+            Self::Black => "blacklist",
         };
         f.write_str(s)
     }
