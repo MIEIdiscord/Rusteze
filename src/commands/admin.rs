@@ -21,7 +21,7 @@ use std::{
 };
 
 #[group]
-#[commands(edit, update, say)]
+#[commands(edit, update, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel)]
@@ -41,6 +41,19 @@ struct GreetingChannels;
 #[commands(log_channel, log_channel_set)]
 #[prefixes("log")]
 struct LogChannel;
+
+#[group]
+#[commands(server_do, pair, pair_guild_set)]
+#[required_permissions(ADMINISTRATOR)]
+#[default_command(server_do)]
+#[prefixes("mc")]
+struct Minecraft;
+
+#[group]
+#[commands(daemon_now, daemon_list)]
+#[required_permissions(ADMINISTRATOR)]
+#[prefixes("daemons", "deamons")]
+struct Daemons;
 
 #[command]
 #[description("Whitelists a player in the minecraft server")]

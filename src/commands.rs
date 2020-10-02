@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 struct Study;
 
 #[group]
-#[commands(ping, info, material)]
+#[commands(online, ping, info, material)]
 struct Misc;
 
 #[command]

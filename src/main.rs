@@ -7,7 +7,7 @@ pub mod util;
 use crate::{
     channels::{read_courses, MiEI},
     commands::{
-        admin::ADMIN_GROUP,
+        admin::{ADMIN_GROUP, DAEMONS_GROUP, MINECRAFT_GROUP},
         cesium::{ChannelMapping, CESIUM_GROUP},
         COURSES_GROUP, MISC_GROUP, STUDY_GROUP,
     },
@@ -187,6 +187,8 @@ fn main() {
             .group(&ADMIN_GROUP)
             .group(&MISC_GROUP)
             .group(&CESIUM_GROUP)
+            .group(&MINECRAFT_GROUP)
+            .group(&DAEMONS_GROUP)
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {
