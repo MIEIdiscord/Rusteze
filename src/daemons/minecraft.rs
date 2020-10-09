@@ -103,7 +103,7 @@ impl Daemon for Minecraft {
     fn run(&self, http: &Http) -> Result<(), Box<dyn std::error::Error>> {
         let guild_id = match self.guild_id {
             Some(g) => g,
-            None => return Ok(())
+            None => return Ok(()),
         };
         let output = minecraft_server_get(&["list"])?;
         if output.status.success() {
@@ -128,12 +128,14 @@ impl Daemon for Minecraft {
                             Some(c) => {
                                 Fork::new("./server_do.sh")
                                     .args(&[format!("team join {} {}", c, name)])
-                                    .spawn()?;
+                                    .spawn()?
+                                    .wait()?;
                             }
                             None => {
                                 Fork::new("./server_do.sh")
                                     .args(&[format!("team leave {}", name)])
-                                    .spawn()?;
+                                    .spawn()?
+                                    .wait()?;
                             }
                         }
                     }
