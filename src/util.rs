@@ -10,7 +10,8 @@ where
 {
     let mut output = Command::new("./server_do.sh")
         .args(args)
-        .output()?;
+        .spawn()?
+        .wait_with_output()?;
     let o_len = output.stdout.len();
     output.stdout.truncate(o_len - 5);
     Ok(output)
