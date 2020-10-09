@@ -1,6 +1,6 @@
 use std::{
     io,
-    process::{Command, Output},
+    process::{Command, Stdio, Output},
 };
 
 pub fn minecraft_server_get<I, S>(args: I) -> io::Result<Output>
@@ -10,6 +10,7 @@ where
 {
     let mut output = Command::new("./server_do.sh")
         .args(args)
+        .stdout(Stdio::piped())
         .spawn()?
         .wait_with_output()?;
     let o_len = output.stdout.len();
