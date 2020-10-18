@@ -9,7 +9,11 @@ use serenity::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::{channel::Message, id::RoleId},
+    model::{
+        channel::Message,
+        id::{GuildId, RoleId},
+        user::User,
+    },
     prelude::*,
     utils::Colour,
 };
@@ -58,7 +62,8 @@ pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
     let output = minecraft_server_get(&["list"])?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    msg.channel_id.say(&ctx, format!("{}\n{}", stdout, stderr))?;
+    msg.channel_id
+        .say(&ctx, format!("{}\n{}", stdout, stderr))?;
     Ok(())
 }
 
@@ -71,7 +76,14 @@ pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let (ids, names) = parse_study_args(args.rest(), &*roles);
+    let (ids, names) = parse_study_args(
+        args.rest(),
+        &*roles,
+        &msg.author,
+        &ctx,
+        msg.guild_id.ok_or("Guild id not found")?,
+        true,
+    );
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
@@ -94,7 +106,14 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let (ids, names) = parse_study_args(args.rest(), &*roles);
+    let (ids, names) = parse_study_args(
+        args.rest(),
+        &*roles,
+        &msg.author,
+        &ctx,
+        msg.guild_id.ok_or("Guild id not found")?,
+        false,
+    );
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")?;
@@ -108,11 +127,18 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
-fn parse_study_args<'args>(args: &'args str, roles: &'args MiEI) -> (Vec<RoleId>, Vec<&'args str>) {
+fn parse_study_args<'args, 'miei: 'args>(
+    args: &'args str,
+    roles: &'miei MiEI,
+    user: &'_ User,
+    ctx: &Context,
+    guild_id: GuildId,
+    filter: bool,
+) -> (Vec<RoleId>, Vec<&'args str>) {
     static REGEX: Lazy<Regex> = Lazy::new(|| {
         RegexBuilder::new(concat!(
             r"(",
-            r"(?P<year>\d+) *ano( *(?P<sem>\d+) *sem(estre)?)?|",
+            r"(?P<year>\d+) *ano(( *(?P<sem>\d+)( *sem(estre)?)?)| |$)|",
             r"(?P<course>\S+)",
             r")*"
         ))
@@ -126,23 +152,23 @@ fn parse_study_args<'args>(args: &'args str, roles: &'args MiEI) -> (Vec<RoleId>
         ids.push(r);
         names.push(n);
     };
-    // I know it's fucking horrible but I like it
+    let not_has_role = |(_, r): &_| !filter || !user.has_role(ctx, guild_id, r).unwrap_or(true);
     for c in REGEX.captures_iter(args) {
-        c.name("course") // if it's a course
-            .map(|course| course.as_str())
-            .and_then(|c| roles.role_by_name(c).map(|r| (c, r)))
-            .map(&mut push)
-            .or_else(|| {
-                // else if it's a year
-                c.name("year").map(|y| y.as_str()).and_then(|year| {
-                    c.name("sem") // if it has a semester
-                        .map(|sem| sem.as_str())
-                        .and_then(|sem| roles.roles_by_year_and_semester(year, sem))
-                        .map(|r| r.for_each(&mut push))
-                        // else
-                        .or_else(|| roles.roles_by_year(year).map(|r| r.for_each(&mut push)))
-                })
-            });
+        match c.name("course") {
+            Some(course) => roles
+                .role_by_name(course.as_str())
+                .map(|r| (course.as_str(), r))
+                .filter(not_has_role)
+                .map(&mut push),
+            None => c.name("year").and_then(|year| match c.name("sem") {
+                Some(sem) => roles
+                    .roles_by_year_and_semester(year.as_str(), sem.as_str())
+                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
+                None => roles
+                    .roles_by_year(year.as_str())
+                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
+            }),
+        };
     }
     (ids, names)
 }
