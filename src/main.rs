@@ -7,7 +7,7 @@ pub mod util;
 use crate::{
     channels::{read_courses, MiEI},
     commands::{
-        admin::ADMIN_GROUP,
+        admin::{ADMIN_GROUP, DAEMONS_GROUP, MINECRAFT_GROUP},
         cesium::{ChannelMapping, CESIUM_GROUP},
         COURSES_GROUP, MISC_GROUP, STUDY_GROUP,
     },
@@ -119,7 +119,14 @@ impl EventHandler for Handler {
 }
 
 fn main() {
-    let token = fs::read_to_string("auth").expect("No auth file");
+    let token = match fs::read_to_string("auth") {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("Could not open auth file");
+            eprintln!("Error: {}", e);
+            std::process::exit(1);
+        }
+    };
     let mut client = Client::new(token, Handler).expect("Error creating client");
     {
         let mut data = client.data.write();
@@ -180,6 +187,8 @@ fn main() {
             .group(&ADMIN_GROUP)
             .group(&MISC_GROUP)
             .group(&CESIUM_GROUP)
+            .group(&MINECRAFT_GROUP)
+            .group(&DAEMONS_GROUP)
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {

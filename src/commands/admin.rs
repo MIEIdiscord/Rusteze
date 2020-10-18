@@ -20,58 +20,40 @@ use std::{
     sync::{Mutex, TryLockError},
 };
 
-group!({
-    name: "Admin",
-    options: {
-        required_permissions: [ADMINISTRATOR],
-        prefixes: ["sudo"],
-    },
-    commands: [edit, update, say, whitelist],
-    sub_groups: [CHANNELS, GREETING_CHANNELS, LOG_CHANNEL, MINECRAFT, DAEMONS],
-});
+#[group]
+#[commands(edit, update, say, whitelist)]
+#[required_permissions(ADMINISTRATOR)]
+#[prefixes("sudo")]
+#[sub_groups(Channels, GreetingChannels, LogChannel)]
+struct Admin;
 
-group!({
-    name: "Minecraft",
-    options: {
-        required_permissions: [ADMINISTRATOR],
-        default_command: server_do,
-        prefixes: ["mc"],
-    },
-    commands: [server_do, pair, pair_guild_set],
-});
+#[group]
+#[commands(del, add, list)]
+#[prefixes("ch","channel")]
+struct Channels;
 
-group!({
-    name: "Daemons",
-    options: {
-        required_permissions: [ADMINISTRATOR],
-        prefixes: ["daemons", "deamons"],
-    },
-    commands: [daemon_now, daemon_list],
-});
+#[group]
+#[commands(greet_channel_set, greet_channel, greet_channel_clear)]
+#[prefixes("greet")]
+struct GreetingChannels;
 
-group!({
-    name: "Channels",
-    options: {
-        prefixes: ["ch", "channel"]
-    },
-    commands: [del, add, list],
-});
+#[group]
+#[commands(log_channel, log_channel_set)]
+#[prefixes("log")]
+struct LogChannel;
 
-group!({
-    name: "greeting_channels",
-    options: {
-        prefixes: ["greet"]
-    },
-    commands: [greet_channel_set, greet_channel_clear, greet_channel]
-});
+#[group]
+#[commands(server_do, pair, pair_guild_set)]
+#[required_permissions(ADMINISTRATOR)]
+#[default_command(server_do)]
+#[prefixes("mc")]
+struct Minecraft;
 
-group!({
-    name: "log_channel",
-    options: {
-        prefixes: ["log"]
-    },
-    commands: [log_channel, log_channel_set]
-});
+#[group]
+#[commands(daemon_now, daemon_list)]
+#[required_permissions(ADMINISTRATOR)]
+#[prefixes("daemons", "deamons")]
+struct Daemons;
 
 #[command]
 #[description("Whitelists a player in the minecraft server")]

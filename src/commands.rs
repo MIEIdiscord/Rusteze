@@ -2,28 +2,30 @@ pub mod admin;
 pub mod cesium;
 
 use crate::{channels::MiEI, util::minecraft_server_get};
+use once_cell::sync::Lazy;
+use regex::{Regex, RegexBuilder};
 use serenity::{
     framework::standard::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::{channel::Message, id::RoleId},
+    model::{
+        channel::Message,
+        id::{GuildId, RoleId},
+        user::User,
+    },
     prelude::*,
     utils::Colour,
 };
 use std::collections::BTreeMap;
 
-group!({
-    name: "study",
-    options: {},
-    commands: [study, unstudy],
-});
+#[group]
+#[commands(study, unstudy)]
+struct Study;
 
-group!({
-    name: "Misc",
-    options: {},
-    commands: [online, ping, info, material],
-});
+#[group]
+#[commands(online, ping, info, material)]
+struct Misc;
 
 #[command]
 #[description("Teste de conectividade entre o Bot e os servidores do Discord.")]
@@ -60,7 +62,8 @@ pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
     let output = minecraft_server_get(&["list"])?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    msg.channel_id.say(&ctx, format!("{}\n{}", stdout, stderr))?;
+    msg.channel_id
+        .say(&ctx, format!("{}\n{}", stdout, stderr))?;
     Ok(())
 }
 
@@ -73,30 +76,21 @@ pub fn online(ctx: &mut Context, msg: &Message) -> CommandResult {
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let mut names = Vec::new();
-    let ids = args
-        .raw()
-        .map(|x| roles.get_role_id(x))
-        .flatten()
-        .filter(|(_, b)| {
-            msg.author
-                .has_role(&ctx, msg.guild_id.unwrap(), b)
-                .map(|x| !x)
-                .unwrap_or(false)
-        })
-        .map(|(a, b)| {
-            names.push(a);
-            b
-        })
-        .collect::<Vec<RoleId>>();
-    msg.member(&ctx.cache)
-        .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
-        .transpose()?;
-
+    let (ids, names) = parse_study_args(
+        args.rest(),
+        &*roles,
+        &msg.author,
+        &ctx,
+        msg.guild_id.ok_or("Guild id not found")?,
+        true,
+    );
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
     } else {
+        msg.member(&ctx.cache)
+            .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
+            .transpose()?;
         msg.channel_id
             .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
     }
@@ -112,36 +106,77 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
     let roles = trash.get::<MiEI>().unwrap().read().unwrap();
-    let mut names = Vec::new();
-    let ids = args
-        .raw()
-        .map(|x| roles.get_role_id(x))
-        .flatten()
-        .map(|(a, b)| {
-            names.push(a);
-            b
-        })
-        .collect::<Vec<RoleId>>();
-    msg.member(&ctx.cache)
-        .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
-        .transpose()?;
+    let (ids, names) = parse_study_args(
+        args.rest(),
+        &*roles,
+        &msg.author,
+        &ctx,
+        msg.guild_id.ok_or("Guild id not found")?,
+        false,
+    );
     if names.is_empty() {
         msg.channel_id
             .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")?;
     } else {
+        msg.member(&ctx.cache)
+            .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
+            .transpose()?;
         msg.channel_id
             .say(&ctx.http, format!("Stopped studying: {}", names.join(" ")))?;
     }
     Ok(())
 }
 
-group!({
-    name: "courses",
-    options: {
-        prefixes: ["courses"],
-    },
-    commands: [mk, rm, list],
-});
+fn parse_study_args<'args, 'miei: 'args>(
+    args: &'args str,
+    roles: &'miei MiEI,
+    user: &'_ User,
+    ctx: &Context,
+    guild_id: GuildId,
+    filter: bool,
+) -> (Vec<RoleId>, Vec<&'args str>) {
+    static REGEX: Lazy<Regex> = Lazy::new(|| {
+        RegexBuilder::new(concat!(
+            r"(",
+            r"(?P<year>\d+) *ano(( *(?P<sem>\d+)( *sem(estre)?)?)| |$)|",
+            r"(?P<course>\S+)",
+            r")*"
+        ))
+        .case_insensitive(true)
+        .build()
+        .unwrap()
+    });
+    let mut names = Vec::new();
+    let mut ids = Vec::new();
+    let mut push = |(n, r)| {
+        ids.push(r);
+        names.push(n);
+    };
+    let not_has_role = |(_, r): &_| !filter || !user.has_role(ctx, guild_id, r).unwrap_or(true);
+    for c in REGEX.captures_iter(args) {
+        match c.name("course") {
+            Some(course) => roles
+                .role_by_name(course.as_str())
+                .map(|r| (course.as_str(), r))
+                .filter(not_has_role)
+                .map(&mut push),
+            None => c.name("year").and_then(|year| match c.name("sem") {
+                Some(sem) => roles
+                    .roles_by_year_and_semester(year.as_str(), sem.as_str())
+                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
+                None => roles
+                    .roles_by_year(year.as_str())
+                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
+            }),
+        };
+    }
+    (ids, names)
+}
+
+#[group]
+#[prefixes("courses")]
+#[commands(mk, rm, list)]
+struct Courses;
 
 #[command]
 #[description("Cria salas das cadeiras especificadas, associadas ao ano especificado.")]
