@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serenity::{
