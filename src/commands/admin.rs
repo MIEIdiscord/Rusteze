@@ -3,12 +3,14 @@ mod daemons;
 mod greeting_channels;
 mod log_channel;
 mod minecraft;
+mod user_groups;
 
 use channels::CHANNELS_GROUP;
 use daemons::DAEMONS_GROUP;
 use greeting_channels::GREETINGCHANNELS_GROUP;
 use log_channel::LOGCHANNEL_GROUP;
 use minecraft::MINECRAFT_GROUP;
+use user_groups::USERGROUPS_GROUP;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serenity::{
@@ -30,7 +32,7 @@ use std::{
 #[commands(edit, update, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
 struct Admin;
 
 #[command]

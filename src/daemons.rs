@@ -1,10 +1,11 @@
 pub mod minecraft;
+use parking_lot::RwLock;
 use serenity::http::Http;
 use std::{
     error::Error,
     sync::{
         mpsc::{self, SyncSender, TryRecvError},
-        Arc, RwLock,
+        Arc,
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -55,10 +56,7 @@ pub fn start_daemon_thread(
             .run(http)
             .map_err(|e| eprintln!("Deamon '{}' failed: {:?}", d.name(), e));
     }
-    let list = daemons
-        .iter()
-        .map(|d| d.read().unwrap().name())
-        .collect::<Vec<_>>();
+    let list = daemons.iter().map(|d| d.read().name()).collect::<Vec<_>>();
     let (sx, rx) = mpsc::sync_channel(512);
     let mut daemons = daemons
         .into_iter()
@@ -69,19 +67,17 @@ pub fn start_daemon_thread(
     let handle = thread::spawn(move || loop {
         match rx.try_recv() {
             Ok(DaemonThreadMsg::RunAll) => daemons.iter().for_each(|(_, d)| {
-                run(&*d.read().unwrap(), &*http);
+                run(&*d.read(), &*http);
             }),
             Ok(DaemonThreadMsg::RunOne(i)) => {
-                daemons
-                    .get(i)
-                    .map(|(_, d)| run(&*d.read().unwrap(), &*http));
+                daemons.get(i).map(|(_, d)| run(&*d.read(), &*http));
             }
             Err(TryRecvError::Empty) => {
                 let mut smallest_next_instant = None;
                 let now = Instant::now();
                 for (next_run, daemon) in &mut daemons {
                     if now >= *next_run {
-                        let d = daemon.read().unwrap();
+                        let d = daemon.read();
                         run(&*d, &*http);
                         *next_run = now + d.interval();
                     }

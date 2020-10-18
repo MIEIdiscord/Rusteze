@@ -28,7 +28,7 @@ struct Study;
 #[example("2ano1sem")]
 pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
+    let roles = trash.get::<MiEI>().unwrap().read();
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -58,7 +58,7 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example("2ano1sem")]
 pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
+    let roles = trash.get::<MiEI>().unwrap().read();
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -138,7 +138,7 @@ struct Courses;
 #[required_permissions(ADMINISTRATOR)]
 pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
-    let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
+    let mut roles = trash.get::<MiEI>().unwrap().write();
     let mut iter = args.raw();
     let year = iter.next();
     let semester = iter.next();
@@ -165,7 +165,7 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[required_permissions(ADMINISTRATOR)]
 pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.write();
-    let mut roles = trash.get::<MiEI>().unwrap().write().unwrap();
+    let mut roles = trash.get::<MiEI>().unwrap().write();
     if let Some(guild) = msg.guild_id {
         let rm_roles = args
             .raw()
@@ -189,31 +189,30 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[usage("")]
 pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
     let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read().unwrap();
+    let roles = trash.get::<MiEI>().unwrap().read();
 
     msg.channel_id.send_message(&ctx.http, |m| {
         m.embed(|e| {
-            e.title("Informação sobre as cadeiras disponíveis");
-            e.description(
-                "`$study CADEIRA` junta-te às salas das cadeiras.
+            e.title("Informação sobre as cadeiras disponíveis")
+                .description(
+                    "`$study CADEIRA` junta-te às salas das cadeiras.
 `$study Xano` junta-te a todas as cadeiras de um ano.",
-            );
-            e.fields(
-                roles
-                    .iter()
-                    .fold(BTreeMap::new(), |mut acc, c| {
-                        let s = acc
-                            .entry(format!("{}ano{}semestre", c.year, c.semester))
-                            .or_insert_with(String::new);
-                        s.push_str(c.channel);
-                        s.push_str("\n");
-                        acc
-                    })
-                    .iter()
-                    .map(|(k, v)| (k, v, true)),
-            );
-            e.colour(Colour::from_rgb(0, 0, 0));
-            e
+                )
+                .fields(
+                    roles
+                        .iter()
+                        .fold(BTreeMap::new(), |mut acc, c| {
+                            let s = acc
+                                .entry(format!("{}ano{}semestre", c.year, c.semester))
+                                .or_insert_with(String::new);
+                            s.push_str(c.channel);
+                            s.push_str("\n");
+                            acc
+                        })
+                        .iter()
+                        .map(|(k, v)| (k, v, true)),
+                )
+                .colour(Colour::from_rgb(0, 0, 0))
         });
         m
     })?;

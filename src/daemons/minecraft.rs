@@ -1,5 +1,6 @@
 use super::Daemon;
 use crate::util::minecraft_server_get;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serenity::{
     http::Http,
@@ -11,7 +12,7 @@ use std::{
     fmt::{self, Display},
     fs::File,
     process::Command as Fork,
-    sync::{Arc, RwLock},
+    sync::Arc,
     time::Duration,
 };
 

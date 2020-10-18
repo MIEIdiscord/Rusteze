@@ -1,3 +1,4 @@
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serenity::framework::standard::CommandResult;
 use serenity::model::{
@@ -12,7 +13,7 @@ use std::fs::OpenOptions;
 use std::io;
 use std::{
     io::{BufReader, BufWriter, Error, ErrorKind},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 const COURSES: &str = "courses.json";
@@ -35,10 +36,7 @@ impl MiEI {
         Ok(())
     }
 
-    pub fn role_by_name<'a>(
-        &'a self,
-        role_name: &'a str,
-    ) -> Option<RoleId> {
+    pub fn role_by_name<'a>(&'a self, role_name: &'a str) -> Option<RoleId> {
         let role_name_ = role_name.to_uppercase();
         self.courses
             .values()

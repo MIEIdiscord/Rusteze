@@ -1,10 +1,15 @@
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use serenity::{model::id::ChannelId, prelude::TypeMapKey};
-
-use std::collections::HashSet;
-use std::error;
-use std::fs::File;
-use std::sync::{Arc, RwLock};
+use serenity::{
+    model::id::{ChannelId, RoleId},
+    prelude::TypeMapKey,
+};
+use std::{
+    collections::{HashMap, HashSet},
+    error,
+    fs::File,
+    sync::Arc,
+};
 
 #[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
@@ -16,6 +21,8 @@ pub struct Config {
     greet_message: Option<String>,
     #[serde(default)]
     log_channel: Option<ChannelId>,
+    #[serde(default)]
+    user_groups: HashMap<RoleId, String>,
 }
 
 const CONFIG: &str = "config.json";
@@ -51,7 +58,11 @@ impl Config {
         self.greet_channel
     }
 
-    pub fn set_greet_channel(&mut self, greet_channel: ChannelId, msg: Option<String>) -> Result<(), Box<dyn error::Error>> {
+    pub fn set_greet_channel(
+        &mut self,
+        greet_channel: ChannelId,
+        msg: Option<String>,
+    ) -> Result<(), Box<dyn error::Error>> {
         if let Some(msg) = msg.or_else(|| self.greet_message.take()) {
             self.greet_message = Some(msg);
             self.greet_channel = Some(greet_channel);
@@ -77,6 +88,28 @@ impl Config {
 
     pub fn log_channel(&self) -> Option<ChannelId> {
         self.log_channel
+    }
+
+    pub fn add_user_group(
+        &mut self,
+        ch: RoleId,
+        desc: String,
+    ) -> Result<(), Box<dyn error::Error>> {
+        self.user_groups.insert(ch, desc);
+        Config::serialize(self)
+    }
+
+    pub fn user_group_exists(&self, ch: RoleId) -> bool {
+        self.user_groups.contains_key(&ch)
+    }
+
+    pub fn user_groups(&self) -> impl Iterator<Item = (&RoleId, &str)> {
+        self.user_groups.iter().map(|(r, s)| (r, s.as_str()))
+    }
+
+    pub fn remove_user_group(&mut self, ch: RoleId) -> Result<(), Box<dyn error::Error>> {
+        self.user_groups.remove(&ch);
+        Config::serialize(self)
     }
 }
 

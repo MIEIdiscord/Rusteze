@@ -42,7 +42,6 @@ fn pair(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         .get::<crate::daemons::minecraft::Minecraft>()
         .unwrap()
         .write()
-        .unwrap()
         .pair(nick, user)?;
     msg.channel_id.say(&ctx, "User paired")?;
     Ok(())
@@ -59,7 +58,6 @@ fn pair_guild_set(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .get::<crate::daemons::minecraft::Minecraft>()
                 .unwrap()
                 .write()
-                .unwrap()
                 .set_guild_id(gid)?;
             msg.channel_id.say(&ctx, "Guild id set")?
         }
