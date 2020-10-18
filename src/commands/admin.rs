@@ -10,7 +10,6 @@ use daemons::DAEMONS_GROUP;
 use greeting_channels::GREETINGCHANNELS_GROUP;
 use log_channel::LOGCHANNEL_GROUP;
 use minecraft::MINECRAFT_GROUP;
-use user_groups::USERGROUPS_GROUP;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serenity::{
@@ -27,6 +26,7 @@ use std::{
     str,
     sync::{Mutex, TryLockError},
 };
+use user_groups::USERGROUPS_GROUP;
 
 #[group]
 #[commands(edit, update, say, whitelist)]
