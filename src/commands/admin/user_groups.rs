@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{commands::usermod::*, config::Config};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -9,7 +9,7 @@ use serenity::{
 };
 
 #[group]
-#[commands(add, remove)]
+#[commands(add, remove, list, join, leave)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("usermod")]
 struct UserGroups;
@@ -20,6 +20,9 @@ struct UserGroups;
 #[min_args(2)]
 fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let role = args.single::<RoleId>()?;
+    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role)? {
+        return Err("Role doesn't exist".into());
+    }
     let desc = args.rest();
     ctx.data
         .write()
@@ -37,6 +40,9 @@ fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[min_args(1)]
 fn remove(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let role = args.single::<RoleId>()?;
+    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role)? {
+        return Err("Role doesn't exist".into());
+    }
     ctx.data
         .write()
         .get_mut::<Config>()
