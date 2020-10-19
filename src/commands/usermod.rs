@@ -4,7 +4,10 @@ use serenity::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::channel::Message,
+    model::{
+        channel::Message,
+        id::{GuildId, RoleId},
+    },
     prelude::*,
 };
 
@@ -15,17 +18,12 @@ struct UserMod;
 
 #[command("-a")]
 #[description("Join a role")]
-#[usage("[role_name, ...]")]
+#[usage("role_name")]
 #[min_args(1)]
 pub fn join(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let request = args.raw().next().unwrap().to_lowercase();
-    let role = match msg
-        .guild_id
-        .ok_or("Not in a server")?
-        .to_partial_guild(&ctx)?
-        .role_by_name(&request)
-    {
-        Some(role) => role.id,
+    let request = args.rest();
+    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request)? {
+        Some(role) => role,
         None => return Err("No such role".into()),
     };
     if ctx
@@ -53,16 +51,11 @@ pub fn join(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
 #[command("-d")]
 #[description("Leave a role")]
-#[usage("[role_name, ...]")]
+#[usage("role_name")]
 pub fn leave(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let request = args.raw().next().unwrap().to_lowercase();
-    let role = match msg
-        .guild_id
-        .ok_or("Not in a server")?
-        .to_partial_guild(&ctx)?
-        .role_by_name(&request)
-    {
-        Some(role) => role.id,
+    let request = args.rest();
+    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request)? {
+        Some(role) => role,
         None => return Err("No such role".into()),
     };
     if ctx
@@ -89,8 +82,7 @@ pub fn leave(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[command("-l")]
-#[description("Leave a role")]
-#[usage("[role_name, ...]")]
+#[description("List user groups")]
 pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
     let map = ctx.data.read();
     let config = map.get::<Config>().expect("Config not loaded").read();
@@ -108,10 +100,32 @@ pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .fields(
                     config
                         .user_groups()
-                        .map(|(r, d)| (&guild.roles.get(&r).unwrap().name, d))
+                        .filter_map(|(r, d)| guild.roles.get(&r).map(|r| (&r.name, d)))
                         .map(|(r, d)| (r, d, true)),
                 )
         })
     })?;
     Ok(())
+}
+
+pub fn role_exists(
+    ctx: &Context,
+    guild_id: GuildId,
+    role: RoleId,
+) -> Result<bool, serenity::Error> {
+    Ok(guild_id.to_partial_guild(&ctx)?.roles.contains_key(&role))
+}
+
+pub fn role_by_name(
+    ctx: &Context,
+    guild_id: GuildId,
+    role: &str,
+) -> Result<Option<RoleId>, serenity::Error> {
+    Ok(guild_id
+        .to_partial_guild(ctx)?
+        .roles
+        .values()
+        .filter(|r| r.name.eq_ignore_ascii_case(role))
+        .map(|r| r.id)
+        .next())
 }
