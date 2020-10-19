@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
@@ -19,7 +20,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter},
     iter::once,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 #[group]
@@ -180,7 +181,7 @@ impl TypeMapKey for ChannelMapping {
 pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.ok_or("Message with no guild id")?;
     let data_lock = ctx.data.write();
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().unwrap();
+    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write();
     args.iter::<UserId>().try_for_each(|x| x.map(|_| ()))?;
     args.restore();
     channels.create_channel(guild_id, &ctx, args.iter::<UserId>().map(Result::unwrap))?;
@@ -193,7 +194,7 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[usage("")]
 pub fn remove(ctx: &mut Context, msg: &Message) -> CommandResult {
     let data_lock = ctx.data.write();
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().unwrap();
+    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write();
     channels.delete_channel(msg.channel_id, &ctx)
 }
 
@@ -202,7 +203,7 @@ pub fn remove(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[usage("[StudentMention]")]
 pub fn join(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let data_lock = ctx.data.read();
-    let channels = data_lock.get::<ChannelMapping>().unwrap().read().unwrap();
+    let channels = data_lock.get::<ChannelMapping>().unwrap().read();
     let text = msg.channel_id;
     let voice = channels.get_channel(&text).ok_or("Invalid channel")?;
     args.iter::<UserId>().try_for_each(|x| {

@@ -27,7 +27,7 @@ pub fn greet_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> Co
         }
     });
     let share_map = ctx.data.read();
-    let mut config = share_map.get::<Config>().unwrap().write()?;
+    let mut config = share_map.get::<Config>().unwrap().write();
     config.set_greet_channel(channel_id, greeting)?;
     msg.channel_id.say(&ctx, "Greet channel set")?;
     Ok(())
@@ -38,7 +38,7 @@ pub fn greet_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> Co
 #[usage("")]
 pub fn greet_channel_clear(ctx: &mut Context, msg: &Message) -> CommandResult {
     let share_map = ctx.data.read();
-    let mut config = share_map.get::<Config>().unwrap().write()?;
+    let mut config = share_map.get::<Config>().unwrap().write();
     config.remove_greet_channel()?;
     msg.channel_id.say(&ctx, "Greet channel cleared")?;
     Ok(())
@@ -53,7 +53,7 @@ pub fn greet_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
         .read()
         .get::<Config>()
         .unwrap()
-        .read()?
+        .read()
         .greet_channel()
     {
         Some(ch) => msg

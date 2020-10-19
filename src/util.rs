@@ -1,6 +1,6 @@
 use std::{
     io,
-    process::{Command, Stdio, Output},
+    process::{Command, Output, Stdio},
 };
 
 pub fn minecraft_server_get<I, S>(args: I) -> io::Result<Output>

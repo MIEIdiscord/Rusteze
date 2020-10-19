@@ -11,10 +11,12 @@ use crate::{
         cesium::{ChannelMapping, CESIUM_GROUP},
         misc::MISC_GROUP,
         study::{COURSES_GROUP, STUDY_GROUP},
+        usermod::USERMOD_GROUP,
     },
     config::Config,
     daemons::minecraft::Minecraft,
 };
+use parking_lot::RwLock;
 use serenity::{
     framework::standard::{
         help_commands, macros::help, Args, CommandGroup, CommandResult, DispatchError, HelpOptions,
@@ -30,9 +32,7 @@ use serenity::{
     prelude::*,
     utils::Colour,
 };
-use std::collections::HashSet;
-use std::fs;
-use std::sync::{Arc, RwLock};
+use std::{collections::HashSet, fs, sync::Arc};
 
 struct UpdateNotify;
 
@@ -56,7 +56,7 @@ impl EventHandler for Handler {
 
     fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         let share_map = ctx.data.read();
-        let config = share_map.get::<Config>().unwrap().read().unwrap();
+        let config = share_map.get::<Config>().unwrap().read();
         if let (Some(ch), Some(greet_message)) =
             (config.greet_channel(), config.greet_channel_message())
         {
@@ -87,7 +87,7 @@ impl EventHandler for Handler {
         member_data: Option<Member>,
     ) {
         let share_map = ctx.data.read();
-        let config = share_map.get::<Config>().unwrap().read().unwrap();
+        let config = share_map.get::<Config>().unwrap().read();
         if let Some(ch) = config.log_channel() {
             let nick = member_data
                 .as_ref()
@@ -188,6 +188,7 @@ fn main() {
             .group(&ADMIN_GROUP)
             .group(&MISC_GROUP)
             .group(&CESIUM_GROUP)
+            .group(&USERMOD_GROUP)
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {
@@ -218,7 +219,6 @@ fn valid_channel(ctx: &mut Context, msg: &Message) -> bool {
         .get::<Config>()
         .unwrap()
         .read()
-        .unwrap()
         .channel_is_allowed(msg.channel_id)
 }
 

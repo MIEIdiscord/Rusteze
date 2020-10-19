@@ -21,7 +21,7 @@ struct Channels;
 pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
     let share_map = ctx.data.read();
-    let mut config = share_map.get::<Config>().unwrap().write().unwrap();
+    let mut config = share_map.get::<Config>().unwrap().write();
     config.add_allowed_channel(channel_id)?;
     msg.channel_id.say(&ctx, "Channel added")?;
     Ok(())
@@ -32,7 +32,7 @@ pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[usage("")]
 pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
     let share_map = ctx.data.read();
-    let config = share_map.get::<Config>().unwrap().write().unwrap();
+    let config = share_map.get::<Config>().unwrap().write();
     msg.channel_id.say(
         &ctx,
         format!(
@@ -50,7 +50,7 @@ pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
 pub fn del(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
     let share_map = ctx.data.read();
-    let mut config = share_map.get::<Config>().unwrap().write().unwrap();
+    let mut config = share_map.get::<Config>().unwrap().write();
     config.remove_allowed_channel(channel_id)?;
     msg.channel_id.say(&ctx, "Channel removed")?;
     Ok(())

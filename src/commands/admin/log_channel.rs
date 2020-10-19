@@ -22,7 +22,7 @@ pub fn log_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
         .read()
         .get::<Config>()
         .unwrap()
-        .read()?
+        .read()
         .log_channel()
     {
         Some(ch) => msg
@@ -39,7 +39,7 @@ pub fn log_channel(ctx: &mut Context, msg: &Message) -> CommandResult {
 pub fn log_channel_set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>().ok();
     let share_map = ctx.data.read();
-    let mut config = share_map.get::<Config>().unwrap().write()?;
+    let mut config = share_map.get::<Config>().unwrap().write();
     config.set_log_channel(channel_id)?;
     msg.channel_id.say(
         &ctx,

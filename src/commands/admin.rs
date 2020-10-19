@@ -3,6 +3,7 @@ mod daemons;
 mod greeting_channels;
 mod log_channel;
 mod minecraft;
+mod user_groups;
 
 use channels::CHANNELS_GROUP;
 use daemons::DAEMONS_GROUP;
@@ -25,12 +26,13 @@ use std::{
     str,
     sync::{Mutex, TryLockError},
 };
+use user_groups::USERGROUPS_GROUP;
 
 #[group]
 #[commands(edit, update, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
 struct Admin;
 
 #[command]
