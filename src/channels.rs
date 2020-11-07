@@ -45,6 +45,17 @@ impl MiEI {
             .next()
     }
 
+    pub fn wildcard_roles<'a>(
+        &'a self,
+        wildcard: &str,
+    ) -> impl Iterator<Item = (&str, RoleId)> + 'a {
+        let upper = wildcard.to_uppercase();
+        self.courses
+            .values()
+            .flat_map(|x| x.all_roles())
+            .filter(move |(n, _r)| n.starts_with(&upper))
+    }
+
     pub fn roles_by_year(&self, year: &str) -> Option<impl Iterator<Item = (&str, RoleId)>> {
         self.courses.get(year).map(Year::all_roles)
     }
