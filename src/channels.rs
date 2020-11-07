@@ -49,10 +49,11 @@ impl MiEI {
         &'a self,
         wildcard: &'a str,
     ) -> impl Iterator<Item = (&str, RoleId)> + 'a {
+        let upper = wildcard.to_uppercase();
         self.courses
             .values()
             .flat_map(|x| x.all_roles())
-            .filter(move |(n, _r)| n.starts_with(&wildcard.to_uppercase()))
+            .filter(move |(n, _r)| n.starts_with(&upper))
     }
 
     pub fn roles_by_year(&self, year: &str) -> Option<impl Iterator<Item = (&str, RoleId)>> {
