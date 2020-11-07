@@ -114,7 +114,6 @@ fn parse_study_args<'args, 'miei: 'args>(
                 .filter(not_has_role)
                 .for_each(&mut push);
         } else if let Some(course) = c.name("course") {
-            dbg!(course);
             roles
                 .role_by_name(course.as_str())
                 .map(|r| (course.as_str(), r))
