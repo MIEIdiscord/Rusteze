@@ -47,7 +47,7 @@ impl MiEI {
 
     pub fn wildcard_roles<'a>(
         &'a self,
-        wildcard: &'a str,
+        wildcard: &str,
     ) -> impl Iterator<Item = (&str, RoleId)> + 'a {
         let upper = wildcard.to_uppercase();
         self.courses
