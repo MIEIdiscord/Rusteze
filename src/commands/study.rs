@@ -92,6 +92,7 @@ fn parse_study_args<'args, 'miei: 'args>(
         RegexBuilder::new(concat!(
             r"(",
             r"(?P<year>\d+) *ano(( *(?P<sem>\d+)( *sem(estre)?)?)| |$)|",
+            r"(?P<wildcard>[^ *]+)\*|",
             r"(?P<course>\S+)",
             r")*"
         ))
@@ -107,20 +108,27 @@ fn parse_study_args<'args, 'miei: 'args>(
     };
     let not_has_role = |(_, r): &_| !filter || !user.has_role(ctx, guild_id, r).unwrap_or(true);
     for c in REGEX.captures_iter(args) {
-        match c.name("course") {
-            Some(course) => roles
+        if let Some(wild) = c.name("wildcard") {
+            roles
+                .wildcard_roles(wild.as_str())
+                .filter(not_has_role)
+                .for_each(&mut push);
+        } else if let Some(course) = c.name("course") {
+            dbg!(course);
+            roles
                 .role_by_name(course.as_str())
                 .map(|r| (course.as_str(), r))
                 .filter(not_has_role)
-                .map(&mut push),
-            None => c.name("year").and_then(|year| match c.name("sem") {
+                .map(&mut push);
+        } else {
+            c.name("year").and_then(|year| match c.name("sem") {
                 Some(sem) => roles
                     .roles_by_year_and_semester(year.as_str(), sem.as_str())
                     .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
                 None => roles
                     .roles_by_year(year.as_str())
                     .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
-            }),
+            }); 
         };
     }
     (ids, names)
