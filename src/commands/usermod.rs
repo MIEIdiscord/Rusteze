@@ -121,11 +121,13 @@ pub fn role_by_name(
     guild_id: GuildId,
     role: &str,
 ) -> Result<Option<RoleId>, serenity::Error> {
+    let finder = aho_corasick::AhoCorasickBuilder::new()
+        .ascii_case_insensitive(true)
+        .build(&[role]);
     Ok(guild_id
         .to_partial_guild(ctx)?
         .roles
         .values()
-        .filter(|r| r.name.eq_ignore_ascii_case(role))
-        .map(|r| r.id)
-        .next())
+        .find(|r| finder.is_match(&r.name))
+        .map(|r| r.id))
 }
