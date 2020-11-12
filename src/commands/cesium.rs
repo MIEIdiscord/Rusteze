@@ -205,7 +205,9 @@ pub fn join(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let data_lock = ctx.data.read();
     let channels = data_lock.get::<ChannelMapping>().unwrap().read();
     let text = msg.channel_id;
-    let voice = channels.get_channel(&text).ok_or("Invalid channel")?;
+    let voice = channels
+        .get_channel(&text)
+        .ok_or("Invalid channel, use this command in a #mentor-channel-* channel")?;
     args.iter::<UserId>().try_for_each(|x| {
         x.map_err(|_| "invalid user id")
             .and_then(|u| {

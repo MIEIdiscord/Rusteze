@@ -29,7 +29,7 @@ use std::{
 use user_groups::USERGROUPS_GROUP;
 
 #[group]
-#[commands(edit, update, say, whitelist)]
+#[commands(edit, update, reboot, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
@@ -82,7 +82,7 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
 
 #[command]
 #[description("Update the bot")]
-pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
+pub fn update(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     static UPDATING: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
     let _ = match UPDATING.try_lock() {
         Err(TryLockError::WouldBlock) => return Err("Alreading updating".into()),
@@ -146,6 +146,13 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
     }
     check_msg(message)?;
 
+    reboot(ctx, msg, args)
+}
+
+#[command]
+#[description("Reboot the bot")]
+#[usage("")]
+pub fn reboot(ctx: &mut Context, msg: &Message) -> CommandResult {
     msg.channel_id.say(ctx, "Rebooting...")?;
     std::env::set_var("RUST_BACKTRACE", "1");
     let error = Fork::new("cargo")

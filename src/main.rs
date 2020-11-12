@@ -48,7 +48,7 @@ impl EventHandler for Handler {
         println!("Up and running");
         if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
             ChannelId::from(**id)
-                .send_message(&ctx, |m| m.content("Updated successfully!"))
+                .send_message(&ctx, |m| m.content("Rebooted successfully!"))
                 .expect("Couldn't send update notification");
         }
         ctx.data.write().remove::<UpdateNotify>();
@@ -143,10 +143,15 @@ fn main() {
         data.insert::<ChannelMapping>(Arc::new(RwLock::new(
             ChannelMapping::load().unwrap_or_default(),
         )));
-        let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
-        data.insert::<Minecraft>(Arc::clone(&mc));
-        let dt = daemons::start_daemon_thread(vec![mc], Arc::clone(&client.cache_and_http.http));
-        data.insert::<daemons::DaemonThread>(dt);
+        if let Ok(_) = util::minecraft_server_get(&["list"]) {
+            let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
+            data.insert::<Minecraft>(Arc::clone(&mc));
+            data.insert::<daemons::DaemonThread>(daemons::start_daemon_thread(
+                vec![mc],
+                Arc::clone(&client.cache_and_http.http),
+            ));
+        }
+
     }
     client.with_framework(
         StandardFramework::new()
