@@ -127,7 +127,7 @@ fn parse_study_args<'args, 'miei: 'args>(
                 None => roles
                     .roles_by_year(year.as_str())
                     .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
-            }); 
+            });
         };
     }
     (ids, names)

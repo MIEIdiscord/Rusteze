@@ -122,7 +122,9 @@ impl EventHandler for Handler {
             .map_err(|e| {
                 log!(
                     "Couldn't log user {} (nickname {}) leaving the server. Error: {:?}",
-                    user.name, nick, e
+                    user.name,
+                    nick,
+                    e
                 )
             })
             .ok();
