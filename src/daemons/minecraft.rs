@@ -113,7 +113,7 @@ impl Daemon for Minecraft {
                 .find(':')
                 .ok_or_else(|| format!("Invalid online list: {}", online_list))?;
             let (_, list) = online_list.split_at(index + ':'.len_utf8());
-            for name in list.split(',').map(str::trim) {
+            for name in list.split(',').map(str::trim).filter(|x| !x.is_empty()) {
                 match self.names.get(name) {
                     Some(uuid) => {
                         let member = guild_id.member(http, uuid)?;
@@ -140,7 +140,7 @@ impl Daemon for Minecraft {
                             }
                         }
                     }
-                    None => eprintln!("[Minecraft daemon]: '{}' not stored", name),
+                    None => crate::log!("[Minecraft daemon]: '{}' not stored", name),
                 }
             }
         }

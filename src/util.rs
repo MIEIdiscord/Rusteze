@@ -11,9 +11,17 @@ where
     let mut output = Command::new("./server_do.sh")
         .args(args)
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?
         .wait_with_output()?;
     let o_len = output.stdout.len();
-    output.stdout.truncate(o_len - 5);
-    Ok(output)
+    output.stdout.truncate(o_len.saturating_sub(5));
+    if output.status.success() {
+        Ok(output)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            String::from_utf8_lossy(&output.stdout) + String::from_utf8_lossy(&output.stderr),
+        ))
+    }
 }

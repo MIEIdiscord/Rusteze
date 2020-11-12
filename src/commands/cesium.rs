@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
         macros::{check, command, group},
-        Args, CheckResult, CommandOptions, CommandResult, Reason,
+        ArgError, Args, CheckResult, CommandOptions, CommandResult, Reason,
     },
     http::{CacheHttp, Http},
     model::{
@@ -38,7 +38,7 @@ const CHANNELS: &str = "cesium_channels.json";
 #[check]
 #[name = "is_mod_or_cesium"]
 pub fn is_mod_or_cesium(
-    _: &mut Context,
+    ctx: &mut Context,
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
@@ -46,10 +46,20 @@ pub fn is_mod_or_cesium(
     msg.member
         .as_ref()
         .and_then(|m| {
-            if [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
-                .iter()
-                .any(|r| m.roles.contains(r))
-            {
+            let is_admin = || {
+                msg.guild_id.map(|id| {
+                    id.member(&ctx, msg.author.id)
+                        .and_then(|u| u.permissions(&ctx))
+                        .map(Permissions::administrator)
+                        .unwrap_or(false)
+                })
+            };
+            let has_role = || {
+                [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
+                    .iter()
+                    .any(|r| m.roles.contains(r))
+            };
+            if has_role() || is_admin()? {
                 Some(CheckResult::Success)
             } else {
                 None
@@ -178,6 +188,7 @@ impl TypeMapKey for ChannelMapping {
 #[command]
 #[description("Adds a new private room")]
 #[usage("[StudentMention...]")]
+#[min_args(1)]
 pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.ok_or("Message with no guild id")?;
     let data_lock = ctx.data.write();
@@ -199,40 +210,38 @@ pub fn remove(ctx: &mut Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-#[description("Adds a student to a private room")]
-#[usage("[StudentMention]")]
+#[description("Adds a student to a private room, the room is where the command is called or passed as a second parameter")]
+#[usage("StudentMention [channel_mention]")]
+#[min_args(1)]
 pub fn join(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let data_lock = ctx.data.read();
     let channels = data_lock.get::<ChannelMapping>().unwrap().read();
-    let text = msg.channel_id;
-    let voice = channels.get_channel(&text).ok_or("Invalid channel")?;
-    args.iter::<UserId>().try_for_each(|x| {
-        x.map_err(|_| "invalid user id")
-            .and_then(|u| {
-                text.create_permission(
-                    &ctx,
-                    &PermissionOverwrite {
-                        kind: PermissionOverwriteType::Member(u),
-                        allow: Permissions::READ_MESSAGES,
-                        deny: Permissions::empty(),
-                    },
-                )
-                .map(|_| u)
-                .map_err(|_| "Failed to create permission for text channel")
-            })
-            .and_then(|u| {
-                voice
-                    .create_permission(
-                        &ctx,
-                        &PermissionOverwrite {
-                            kind: PermissionOverwriteType::Member(u),
-                            allow: Permissions::READ_MESSAGES,
-                            deny: Permissions::empty(),
-                        },
-                    )
-                    .map_err(|_| "Failed to create permissio for voice channeln")
-            })
-    })?;
+    let user = args.single::<UserId>()?;
+    let text = match args.single::<ChannelId>() {
+        Ok(t) => t,
+        Err(ArgError::Eos) => msg.channel_id,
+        Err(e) => return Err(e.into()),
+    };
+    let voice = channels.get_channel(&text).ok_or(
+        "Invalid channel, use this command in a #mentor-channel-* channel \
+or mention the channel as a second parameter",
+    )?;
+    text.create_permission(
+        &ctx,
+        &PermissionOverwrite {
+            kind: PermissionOverwriteType::Member(user),
+            allow: Permissions::READ_MESSAGES,
+            deny: Permissions::empty(),
+        },
+    )?;
+    voice.create_permission(
+        &ctx,
+        &PermissionOverwrite {
+            kind: PermissionOverwriteType::Member(user),
+            allow: Permissions::READ_MESSAGES,
+            deny: Permissions::empty(),
+        },
+    )?;
     msg.channel_id.say(&ctx, "User(s) added")?;
     Ok(())
 }

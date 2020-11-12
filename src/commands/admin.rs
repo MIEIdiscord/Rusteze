@@ -29,7 +29,7 @@ use std::{
 use user_groups::USERGROUPS_GROUP;
 
 #[group]
-#[commands(edit, update, say, whitelist)]
+#[commands(edit, update, reboot, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
@@ -65,9 +65,10 @@ pub fn whitelist(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     if output.status.success() {
-        eprintln!(
+        crate::log!(
             "WHITELIST COMMAND LOG:\nSTDOUT:\n{}\nSTDERR:\n{}",
-            stdout, stderr
+            stdout,
+            stderr
         );
         msg.channel_id
             .say(&ctx, "Whitelist changed and reloaded!")?;
@@ -129,7 +130,16 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
     check_msg(message)?;
 
     let message = msg.channel_id.say(&ctx, "Compiling...")?;
-    let out = &Fork::new("cargo").args(&["build", "--release"]).output()?;
+    let out = &Fork::new("cargo")
+        .args(&[
+            "build",
+            if cfg!(debug_assertions) {
+                ""
+            } else {
+                "--release"
+            },
+        ])
+        .output()?;
     if !out.status.success() {
         return Err(format!(
             "Build Error!
@@ -146,10 +156,31 @@ pub fn update(ctx: &mut Context, msg: &Message) -> CommandResult {
     }
     check_msg(message)?;
 
-    msg.channel_id.say(ctx, "Rebooting...")?;
+    reboot_bot(ctx, msg.channel_id)
+}
+
+#[command]
+#[description("Reboot the bot")]
+#[usage("")]
+pub fn reboot(ctx: &mut Context, msg: &Message) -> CommandResult {
+    reboot_bot(ctx, msg.channel_id)
+}
+
+fn reboot_bot(ctx: &Context, ch_id: ChannelId) -> CommandResult {
+    ch_id.say(ctx, "Rebooting...")?;
     std::env::set_var("RUST_BACKTRACE", "1");
     let error = Fork::new("cargo")
-        .args(&["run", "--release", "--", "-r", &msg.channel_id.to_string()])
+        .args(&[
+            "run",
+            if cfg!(debug_assertions) {
+                ""
+            } else {
+                "--release"
+            },
+            "--",
+            "-r",
+            &ch_id.to_string(),
+        ])
         .exec();
     std::env::remove_var("RUST_BACKTRACE");
     Err(error.into())
