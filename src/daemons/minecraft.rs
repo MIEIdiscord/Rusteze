@@ -140,7 +140,7 @@ impl Daemon for Minecraft {
                             }
                         }
                     }
-                    None => eprintln!("[Minecraft daemon]: '{}' not stored", name),
+                    None => crate::log!("[Minecraft daemon]: '{}' not stored", name),
                 }
             }
         }

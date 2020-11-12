@@ -54,7 +54,7 @@ pub fn start_daemon_thread(
     fn run(d: &dyn Daemon, http: &Http) {
         let _ = d
             .run(http)
-            .map_err(|e| eprintln!("Deamon '{}' failed: {:?}", d.name(), e));
+            .map_err(|e| crate::log!("Deamon '{}' failed: {:?}", d.name(), e));
     }
     let list = daemons.iter().map(|d| d.read().name()).collect::<Vec<_>>();
     let (sx, rx) = mpsc::sync_channel(512);
@@ -87,15 +87,15 @@ pub fn start_daemon_thread(
                 }
                 match smallest_next_instant {
                     Some(s) => next_global_run = Some(s),
-                    None => break eprintln!("Deamon thread terminating"),
+                    None => break crate::log!("Deamon thread terminating"),
                 }
             }
-            Err(_) => break eprintln!("Deamon thread terminating"),
+            Err(_) => break crate::log!("Deamon thread terminating"),
         }
         let now = Instant::now();
         match next_global_run {
             Some(s) => thread::park_timeout(s - now),
-            None => break eprintln!("Deamon thread terminating"),
+            None => break crate::log!("Deamon thread terminating"),
         }
     });
     DaemonThread {

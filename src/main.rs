@@ -42,10 +42,21 @@ impl TypeMapKey for UpdateNotify {
 
 struct Handler;
 
+#[macro_export]
+macro_rules! log {
+    ($fmt:expr $(, $param:expr)*$(,)?) => {
+        eprintln!(
+            concat!("[{}] ", $fmt),
+            ::chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            $($param,)*
+        )
+    }
+}
+
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, _ready: Ready) {
         ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online);
-        println!("Up and running");
+        crate::log!("Up and running");
         if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
             ChannelId::from(**id)
                 .send_message(&ctx, |m| m.content("Rebooted successfully!"))
@@ -75,7 +86,7 @@ impl EventHandler for Handler {
                     e
                 });
                 m
-            }).map_err(|e| eprintln!("Couldn't greet new user {}: {:?}", user, e)).ok();
+            }).map_err(|e| log!("Couldn't greet new user {}: {:?}", user, e)).ok();
         }
     }
 
@@ -109,7 +120,7 @@ impl EventHandler for Handler {
                 })
             })
             .map_err(|e| {
-                println!(
+                log!(
                     "Couldn't log user {} (nickname {}) leaving the server. Error: {:?}",
                     user.name, nick, e
                 )
@@ -123,8 +134,8 @@ fn main() {
     let token = match fs::read_to_string("auth") {
         Ok(token) => token,
         Err(e) => {
-            eprintln!("Could not open auth file");
-            eprintln!("Error: {}", e);
+            log!("Could not open auth file");
+            log!("Error: {}", e);
             std::process::exit(1);
         }
     };
@@ -144,6 +155,7 @@ fn main() {
             ChannelMapping::load().unwrap_or_default(),
         )));
         if let Ok(_) = util::minecraft_server_get(&["list"]) {
+            log!("Initializing minecraft daemon");
             let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
             data.insert::<Minecraft>(Arc::clone(&mc));
             data.insert::<daemons::DaemonThread>(daemons::start_daemon_thread(
@@ -151,7 +163,6 @@ fn main() {
                 Arc::clone(&client.cache_and_http.http),
             ));
         }
-
     }
     client.with_framework(
         StandardFramework::new()
@@ -163,16 +174,30 @@ fn main() {
                     || is_cesium_cmd(msg)
             })
             .after(|ctx, msg, cmd_name, error| match error {
-                Ok(()) => eprintln!("Processed command '{}' for user '{}'", cmd_name, msg.author),
+                Ok(()) => log!(
+                    "Processed command '{}' for user '{}::{}'",
+                    cmd_name,
+                    msg.author.name,
+                    msg.author,
+                ),
                 Err(why) => {
                     let _ = msg.channel_id.say(ctx, &why.0);
-                    eprintln!("Command '{}' failed with {:?}", cmd_name, why)
+                    log!(
+                        "Command '{}' for user '{}::{}' failed because {:?}",
+                        cmd_name,
+                        msg.author.name,
+                        msg.author,
+                        why
+                    )
                 }
             })
             .on_dispatch_error(|ctx, msg, error| {
-                eprintln!(
-                    "Command '{}' for user '{}' failed with error '{:?}'",
-                    msg.content, msg.author, error
+                log!(
+                    "Command '{}' for user '{}::{}' failed to dispatch because '{:?}'",
+                    msg.content,
+                    msg.author.name,
+                    msg.author,
+                    error
                 );
                 if let Some(s) = match error {
                     DispatchError::NotEnoughArguments { min: m, given: g } => {
@@ -197,7 +222,7 @@ fn main() {
             .help(&MY_HELP),
     );
     if let Err(why) = client.start() {
-        println!("Client error: {:?}", why);
+        log!("Client error: {:?}", why);
     }
 }
 
