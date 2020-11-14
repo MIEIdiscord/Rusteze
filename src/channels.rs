@@ -106,16 +106,16 @@ impl MiEI {
                         .permissions(perms)
                 })
                 .unwrap();
-            let anexos = guild
+            let duvidas = guild
                 .create_channel(&ctx, |c| {
-                    c.name(format!("anexos-{}", &upper_course))
+                    c.name(format!("duvidas-{}", &upper_course))
                         .kind(ChannelType::Text)
                         .category(category.id)
                 })
                 .unwrap();
-            let duvidas = guild
+            let anexos = guild
                 .create_channel(&ctx, |c| {
-                    c.name(format!("duvidas-{}", &upper_course))
+                    c.name(format!("anexos-{}", &upper_course))
                         .kind(ChannelType::Text)
                         .category(category.id)
                 })
