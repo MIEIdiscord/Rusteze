@@ -12,7 +12,7 @@ use serenity::{
 #[group]
 #[commands(del, add, list)]
 #[prefixes("ch", "channel")]
-struct Channels;
+pub struct Channels;
 
 #[command]
 #[description("Adds an allowed channel")]
