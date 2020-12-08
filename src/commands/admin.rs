@@ -5,11 +5,11 @@ mod log_channel;
 mod minecraft;
 mod user_groups;
 
-use channels::CHANNELS_GROUP;
-use daemons::DAEMONS_GROUP;
-use greeting_channels::GREETINGCHANNELS_GROUP;
-use log_channel::LOGCHANNEL_GROUP;
-use minecraft::MINECRAFT_GROUP;
+use channels::*;
+use daemons::*;
+use greeting_channels::*;
+use log_channel::*;
+use minecraft::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serenity::{
@@ -17,7 +17,10 @@ use serenity::{
         macros::{command, group},
         Args, CommandResult,
     },
-    model::{channel::Message, id::ChannelId},
+    model::{
+        channel::Message,
+        id::{ChannelId, RoleId},
+    },
     prelude::*,
 };
 use std::{
@@ -26,10 +29,10 @@ use std::{
     str,
     sync::{Mutex, TryLockError},
 };
-use user_groups::USERGROUPS_GROUP;
+use user_groups::*;
 
 #[group]
-#[commands(edit, update, reboot, say, whitelist)]
+#[commands(member_count, edit, update, reboot, say, whitelist)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
@@ -205,5 +208,23 @@ pub fn edit(ctx: &mut Context, _msg: &Message, mut args: Args) -> CommandResult 
     let msg_id = args.single::<u64>()?;
     let mut message = channel_id.message(&ctx.http, msg_id)?;
     message.edit(&ctx, |c| c.content(args.rest()))?;
+    Ok(())
+}
+
+#[command]
+#[description("Count the number of members with a role")]
+#[usage("#role_mention")]
+#[min_args(1)]
+pub fn member_count(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let role = args.single::<RoleId>()?;
+    let member_count = msg
+        .guild_id
+        .ok_or_else(|| String::from("Not in a guild"))?
+        .members_iter(&ctx)
+        .filter_map(Result::ok)
+        .filter(|m| m.roles.contains(&role))
+        .count();
+    msg.channel_id
+        .say(&ctx, format!("Role has {} members", member_count))?;
     Ok(())
 }
