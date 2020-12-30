@@ -1,5 +1,5 @@
+use futures::future::TryFutureExt;
 use itertools::Itertools;
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
@@ -37,37 +37,34 @@ const CHANNELS: &str = "cesium_channels.json";
 
 #[check]
 #[name = "is_mod_or_cesium"]
-pub fn is_mod_or_cesium(
-    ctx: &mut Context,
+pub async fn is_mod_or_cesium(
+    ctx: &Context,
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
 ) -> CheckResult {
-    msg.member
-        .as_ref()
-        .and_then(|m| {
-            let is_admin = || {
-                msg.guild_id.map(|id| {
-                    id.member(&ctx, msg.author.id)
-                        .and_then(|u| u.permissions(&ctx))
-                        .map(Permissions::administrator)
-                        .unwrap_or(false)
-                })
-            };
-            let has_role = || {
-                [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
-                    .iter()
-                    .any(|r| m.roles.contains(r))
-            };
-            if has_role() || is_admin()? {
-                Some(CheckResult::Success)
-            } else {
-                None
-            }
-        })
-        .unwrap_or(CheckResult::Failure(Reason::User(
+    let (m, gid) = match (&msg.member, msg.guild_id) {
+        (Some(m), Some(g)) => (m, g),
+        _ => return CheckResult::Failure(Reason::User("Not in a guild".to_string())),
+    };
+    if [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
+        .iter()
+        .any(|r| m.roles.contains(r))
+    {
+        CheckResult::Success
+    } else if gid
+        .member(&ctx, msg.author.id)
+        .and_then(|u| async move { u.permissions(&ctx).await })
+        .and_then(|p| async move { Ok(p.administrator()) })
+        .await
+        .unwrap_or(false)
+    {
+        CheckResult::Success
+    } else {
+        CheckResult::Failure(Reason::User(
             "You don't have permission to use that command!".to_string(),
-        )))
+        ))
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
@@ -99,7 +96,7 @@ impl ChannelMapping {
         self.channels.get(channel)
     }
 
-    fn create_channel<C, U>(&mut self, guild_id: GuildId, ctx: C, users: U) -> CommandResult
+    async fn create_channel<C, U>(&mut self, guild_id: GuildId, ctx: C, users: U) -> CommandResult
     where
         C: CacheHttp + AsRef<Http> + Copy,
         U: Iterator<Item = UserId>,
@@ -133,20 +130,24 @@ impl ChannelMapping {
                 deny: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
             }))
             .collect();
-        let text = guild_id.create_channel(ctx, |channel| {
-            channel
-                .name(format!("mentor-channel-{}", self.last_number))
-                .kind(ChannelType::Text)
-                .category(CESIUM_CATEGORY)
-                .permissions(users.iter().map(|p| p.clone()))
-        })?;
-        let voice = guild_id.create_channel(ctx, |channel| {
-            channel
-                .name(format!("mentor-channel-{}", self.last_number))
-                .kind(ChannelType::Voice)
-                .category(CESIUM_CATEGORY)
-                .permissions(users.into_iter())
-        })?;
+        let text = guild_id
+            .create_channel(ctx, |channel| {
+                channel
+                    .name(format!("mentor-channel-{}", self.last_number))
+                    .kind(ChannelType::Text)
+                    .category(CESIUM_CATEGORY)
+                    .permissions(users.iter().map(|p| p.clone()))
+            })
+            .await?;
+        let voice = guild_id
+            .create_channel(ctx, |channel| {
+                channel
+                    .name(format!("mentor-channel-{}", self.last_number))
+                    .kind(ChannelType::Voice)
+                    .category(CESIUM_CATEGORY)
+                    .permissions(users.into_iter())
+            })
+            .await?;
         text.say(
             &ctx,
             format!(
@@ -157,25 +158,27 @@ Bem vindos aos vosso canto privado! {}",
                     .iter()
                     .format_with(" ", |u, f| f(&format_args!("{}", u.mention())))
             ),
-        )?;
+        )
+        .await?;
         self.last_number += 1;
         self.channels.insert(text.id, voice.id);
         self.write_channels()?;
         Ok(())
     }
 
-    fn delete_channel<C>(&mut self, channel_id: ChannelId, ctx: C) -> CommandResult
+    async fn delete_channel<C>(&mut self, channel_id: ChannelId, ctx: C) -> CommandResult
     where
         C: CacheHttp + AsRef<Http> + Copy,
     {
         let voice = channel_id
-            .to_channel(ctx)?
+            .to_channel(ctx)
+            .await?
             .guild()
-            .filter(|ch| ch.read().category_id == Some(CESIUM_CATEGORY))
+            .filter(|ch| ch.category_id == Some(CESIUM_CATEGORY))
             .and_then(|_| self.channels.get(&channel_id))
             .ok_or("Invalid channel")?;
-        channel_id.delete(ctx)?;
-        voice.delete(ctx)?;
+        channel_id.delete(ctx).await?;
+        voice.delete(ctx).await?;
         self.write_channels()?;
         Ok(())
     }
@@ -189,33 +192,35 @@ impl TypeMapKey for ChannelMapping {
 #[description("Adds a new private room")]
 #[usage("[StudentMention...]")]
 #[min_args(1)]
-pub fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.ok_or("Message with no guild id")?;
-    let data_lock = ctx.data.write();
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write();
+    let data_lock = ctx.data.write().await;
+    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().await;
     args.iter::<UserId>().try_for_each(|x| x.map(|_| ()))?;
     args.restore();
-    channels.create_channel(guild_id, &ctx, args.iter::<UserId>().map(Result::unwrap))?;
-    msg.channel_id.say(&ctx, "Room created")?;
+    channels
+        .create_channel(guild_id, &ctx, args.iter::<UserId>().map(Result::unwrap))
+        .await?;
+    msg.channel_id.say(&ctx, "Room created").await?;
     Ok(())
 }
 
 #[command]
 #[description("Removes a new private room")]
 #[usage("")]
-pub fn remove(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let data_lock = ctx.data.write();
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write();
-    channels.delete_channel(msg.channel_id, &ctx)
+pub async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
+    let data_lock = ctx.data.write().await;
+    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().await;
+    channels.delete_channel(msg.channel_id, &ctx).await
 }
 
 #[command]
 #[description("Adds a student to a private room, the room is where the command is called or passed as a second parameter")]
 #[usage("StudentMention [channel_mention]")]
 #[min_args(1)]
-pub fn join(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let data_lock = ctx.data.read();
-    let channels = data_lock.get::<ChannelMapping>().unwrap().read();
+pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let data_lock = ctx.data.read().await;
+    let channels = data_lock.get::<ChannelMapping>().unwrap().read().await;
     let user = args.single::<UserId>()?;
     let text = match args.single::<ChannelId>() {
         Ok(t) => t,
@@ -233,15 +238,18 @@ or mention the channel as a second parameter",
             allow: Permissions::READ_MESSAGES,
             deny: Permissions::empty(),
         },
-    )?;
-    voice.create_permission(
-        &ctx,
-        &PermissionOverwrite {
-            kind: PermissionOverwriteType::Member(user),
-            allow: Permissions::READ_MESSAGES,
-            deny: Permissions::empty(),
-        },
-    )?;
-    msg.channel_id.say(&ctx, "User(s) added")?;
+    )
+    .await?;
+    voice
+        .create_permission(
+            &ctx,
+            &PermissionOverwrite {
+                kind: PermissionOverwriteType::Member(user),
+                allow: Permissions::READ_MESSAGES,
+                deny: Permissions::empty(),
+            },
+        )
+        .await?;
+    msg.channel_id.say(&ctx, "User(s) added").await?;
     Ok(())
 }

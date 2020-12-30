@@ -1,3 +1,5 @@
+#![deny(unused_must_use)]
+
 pub mod channels;
 mod commands;
 pub mod config;
@@ -6,21 +8,15 @@ pub mod util;
 
 use crate::{
     channels::{read_courses, MiEI},
-    commands::{
-        admin::ADMIN_GROUP,
-        cesium::{ChannelMapping, CESIUM_GROUP},
-        misc::MISC_GROUP,
-        study::{COURSES_GROUP, STUDY_GROUP},
-        usermod::USERMOD_GROUP,
-    },
+    commands::{admin::*, cesium::*, misc::*, study::*, usermod::*},
     config::Config,
     daemons::minecraft::Minecraft,
 };
-use parking_lot::RwLock;
 use serenity::{
     framework::standard::{
-        help_commands, macros::help, Args, CommandGroup, CommandResult, DispatchError, HelpOptions,
-        StandardFramework,
+        help_commands,
+        macros::{help, hook},
+        Args, CommandGroup, CommandResult, DispatchError, HelpOptions, StandardFramework,
     },
     model::{
         channel::Message,
@@ -40,8 +36,6 @@ impl TypeMapKey for UpdateNotify {
     type Value = Arc<u64>;
 }
 
-struct Handler;
-
 #[macro_export]
 macro_rules! log {
     ($fmt:expr $(, $param:expr)*$(,)?) => {
@@ -53,31 +47,37 @@ macro_rules! log {
     }
 }
 
+struct Handler;
+
+#[serenity::async_trait]
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, _ready: Ready) {
-        ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online);
+    async fn ready(&self, ctx: Context, _ready: Ready) {
+        ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online)
+            .await;
         crate::log!("Up and running");
-        if let Some(id) = ctx.data.read().get::<UpdateNotify>() {
+        if let Some(id) = ctx.data.read().await.get::<UpdateNotify>() {
             ChannelId::from(**id)
                 .send_message(&ctx, |m| m.content("Rebooted successfully!"))
+                .await
                 .expect("Couldn't send update notification");
         }
-        ctx.data.write().remove::<UpdateNotify>();
+        ctx.data.write().await.remove::<UpdateNotify>();
     }
 
-    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
-        let share_map = ctx.data.read();
-        let config = share_map.get::<Config>().unwrap().read();
+    async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
+        let share_map = ctx.data.read().await;
+        let config = share_map.get::<Config>().unwrap().read().await;
         if let (Some(ch), Some(greet_message)) =
             (config.greet_channel(), config.greet_channel_message())
         {
-            let user = new_member.user_id();
+            let user = new_member.user.id;
+            let guild = guild_id.to_partial_guild(&ctx.http).await;
             ch.send_message(&ctx, |m| {
                 m.content(user.mention());
                 m.embed(|e| {
                     e.title("Bem-vindo(a) ao servidor de MIEI!");
                     e.description(greet_message);
-                    e.thumbnail(guild_id.to_partial_guild(&ctx.http).map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
+                    e.thumbnail(guild.map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
                     e.colour(Colour::from_rgb(0, 0, 0));
                     e.footer( |f| {
                         f.text("Se tiveres alguma dúvida sobre o bot podes usar o comando $man para saberes o que podes fazer.");
@@ -86,19 +86,19 @@ impl EventHandler for Handler {
                     e
                 });
                 m
-            }).map_err(|e| log!("Couldn't greet new user {}: {:?}", user, e)).ok();
+            }).await.map_err(|e| log!("Couldn't greet new user {}: {:?}", user, e)).ok();
         }
     }
 
-    fn guild_member_removal(
+    async fn guild_member_removal(
         &self,
         ctx: Context,
         _: GuildId,
         user: User,
         member_data: Option<Member>,
     ) {
-        let share_map = ctx.data.read();
-        let config = share_map.get::<Config>().unwrap().read();
+        let share_map = ctx.data.read().await;
+        let config = share_map.get::<Config>().unwrap().read().await;
         if let Some(ch) = config.log_channel() {
             let nick = member_data
                 .as_ref()
@@ -119,6 +119,7 @@ impl EventHandler for Handler {
                         )
                 })
             })
+            .await
             .map_err(|e| {
                 log!(
                     "Couldn't log user {} (nickname {}) leaving the server. Error: {:?}",
@@ -132,7 +133,8 @@ impl EventHandler for Handler {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let token = match fs::read_to_string("auth") {
         Ok(token) => token,
         Err(e) => {
@@ -141,89 +143,45 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let mut client = Client::new(token, Handler).expect("Error creating client");
-    {
-        let mut data = client.data.write();
-        if let Some(id) = std::env::args()
-            .skip_while(|x| x != "-r")
-            .nth(1)
-            .and_then(|id| id.parse::<u64>().ok())
-        {
-            data.insert::<UpdateNotify>(Arc::new(id));
-        }
-        data.insert::<MiEI>(Arc::new(RwLock::new(read_courses().unwrap_or_default())));
-        data.insert::<Config>(Arc::new(RwLock::new(Config::new().unwrap_or_default())));
-        data.insert::<ChannelMapping>(Arc::new(RwLock::new(
+    let mut client_builder = Client::builder(token)
+        .event_handler(Handler)
+        .type_map_insert::<MiEI>(Arc::new(RwLock::new(read_courses().unwrap_or_default())))
+        .type_map_insert::<Config>(Arc::new(RwLock::new(Config::new().unwrap_or_default())))
+        .type_map_insert::<ChannelMapping>(Arc::new(RwLock::new(
             ChannelMapping::load().unwrap_or_default(),
-        )));
-        if let Ok(_) = util::minecraft_server_get(&["list"]) {
-            log!("Initializing minecraft daemon");
-            let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
-            data.insert::<Minecraft>(Arc::clone(&mc));
-            data.insert::<daemons::DaemonThread>(daemons::start_daemon_thread(
-                vec![mc],
-                Arc::clone(&client.cache_and_http.http),
-            ));
-        }
+        )))
+        .framework(
+            StandardFramework::new()
+                .configure(|c| c.prefix("$"))
+                .before(before_hook)
+                .after(after_hook)
+                .on_dispatch_error(dispatch_error_hook)
+                .group(&STUDY_GROUP)
+                .group(&COURSES_GROUP)
+                .group(&ADMIN_GROUP)
+                .group(&MISC_GROUP)
+                .group(&CESIUM_GROUP)
+                .group(&USERMOD_GROUP)
+                .help(&MY_HELP),
+        );
+    if let Some(id) = std::env::args()
+        .skip_while(|x| x != "-r")
+        .nth(1)
+        .and_then(|id| id.parse::<u64>().ok())
+    {
+        client_builder = client_builder.type_map_insert::<UpdateNotify>(Arc::new(id))
     }
-    client.with_framework(
-        StandardFramework::new()
-            .configure(|c| c.prefix("$"))
-            .before(|ctx, msg, _message| {
-                valid_channel(ctx, msg)
-                    || is_mc_cmd(ctx, msg)
-                    || is_admin(ctx, msg)
-                    || is_cesium_cmd(msg)
-            })
-            .after(|ctx, msg, cmd_name, error| match error {
-                Ok(()) => log!(
-                    "Processed command '{}' for user '{}::{}'",
-                    cmd_name,
-                    msg.author.name,
-                    msg.author,
-                ),
-                Err(why) => {
-                    let _ = msg.channel_id.say(ctx, &why.0);
-                    log!(
-                        "Command '{}' for user '{}::{}' failed because {:?}",
-                        cmd_name,
-                        msg.author.name,
-                        msg.author,
-                        why
-                    )
-                }
-            })
-            .on_dispatch_error(|ctx, msg, error| {
-                log!(
-                    "Command '{}' for user '{}::{}' failed to dispatch because '{:?}'",
-                    msg.content,
-                    msg.author.name,
-                    msg.author,
-                    error
-                );
-                if let Some(s) = match error {
-                    DispatchError::NotEnoughArguments { min: m, given: g } => {
-                        Some(format!("Not enough arguments! min: {}, given: {}", m, g))
-                    }
-                    DispatchError::TooManyArguments { max: m, given: g } => {
-                        Some(format!("Too many arguments! max: {}, given: {}", m, g))
-                    }
-                    _ => None,
-                } {
-                    msg.channel_id
-                        .say(ctx, s)
-                        .expect("Couldn't communicate dispatch error");
-                }
-            })
-            .group(&STUDY_GROUP)
-            .group(&COURSES_GROUP)
-            .group(&ADMIN_GROUP)
-            .group(&MISC_GROUP)
-            .group(&CESIUM_GROUP)
-            .group(&USERMOD_GROUP)
-            .help(&MY_HELP),
-    );
-    if let Err(why) = client.start() {
+    let mut client = client_builder.await.expect("failed to start client");
+    if let Ok(_) = util::minecraft_server_get(&["list"]) {
+        log!("Initializing minecraft daemon");
+        let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
+        let mut data = client.data.write().await;
+        data.insert::<Minecraft>(Arc::clone(&mc));
+        data.insert::<daemons::DaemonThread>(
+            daemons::start_daemon_thread(vec![mc], Arc::clone(&client.cache_and_http)).await,
+        );
+    }
+    if let Err(why) = client.start().await {
         log!("Client error: {:?}", why);
     }
 }
@@ -234,39 +192,105 @@ fn main() {
 #[lacking_permissions("hide")]
 #[strikethrough_commands_tip_in_guild(" ")]
 #[strikethrough_commands_tip_in_dm(" ")]
-fn my_help(
-    context: &mut Context,
+async fn my_help(
+    context: &Context,
     msg: &Message,
     args: Args,
     help_options: &'static HelpOptions,
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners)
+    let _ = help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
+    Ok(())
 }
 
-fn valid_channel(ctx: &mut Context, msg: &Message) -> bool {
+#[hook]
+async fn before_hook(ctx: &Context, msg: &Message, _: &str) -> bool {
+    valid_channel(ctx, msg).await
+        || is_mc_cmd(ctx, msg).await
+        || is_admin(ctx, msg).await
+        || is_cesium_cmd(msg).await
+}
+
+#[hook]
+async fn after_hook(ctx: &Context, msg: &Message, cmd_name: &str, error: CommandResult) {
+    match error {
+        Ok(()) => log!(
+            "Processed command '{}' for user '{}::{}'",
+            cmd_name,
+            msg.author.name,
+            msg.author,
+        ),
+        Err(why) => {
+            let _ = msg.channel_id.say(ctx, &why);
+            log!(
+                "Command '{}' for user '{}::{}' failed because {:?}",
+                cmd_name,
+                msg.author.name,
+                msg.author,
+                why
+            )
+        }
+    }
+}
+
+#[hook]
+async fn dispatch_error_hook(ctx: &Context, msg: &Message, error: DispatchError) {
+    log!(
+        "Command '{}' for user '{}::{}' failed to dispatch because '{:?}'",
+        msg.content,
+        msg.author.name,
+        msg.author,
+        error
+    );
+    if let Some(s) = match error {
+        DispatchError::NotEnoughArguments { min: m, given: g } => {
+            Some(format!("Not enough arguments! min: {}, given: {}", m, g))
+        }
+        DispatchError::TooManyArguments { max: m, given: g } => {
+            Some(format!("Too many arguments! max: {}, given: {}", m, g))
+        }
+        _ => None,
+    } {
+        msg.channel_id
+            .say(ctx, s)
+            .await
+            .expect("Couldn't communicate dispatch error");
+    }
+}
+
+async fn valid_channel(ctx: &Context, msg: &Message) -> bool {
     ctx.data
         .read()
+        .await
         .get::<Config>()
         .unwrap()
         .read()
+        .await
         .channel_is_allowed(msg.channel_id)
 }
 
-fn is_admin(ctx: &mut Context, msg: &Message) -> bool {
-    msg.guild_id
-        .and_then(|g| g.member(&ctx, &msg.author).ok())
-        .and_then(|u| u.permissions(&ctx).ok())
-        .map(|p| p.administrator())
-        .unwrap_or(false)
+async fn is_admin(ctx: &Context, msg: &Message) -> bool {
+    async fn _f(ctx: &Context, msg: &Message) -> Option<bool> {
+        Some(
+            msg.guild_id?
+                .member(&ctx.http, &msg.author)
+                .await
+                .ok()?
+                .permissions(&ctx)
+                .await
+                .ok()?
+                .administrator(),
+        )
+    }
+    _f(ctx, msg).await.unwrap_or(false)
 }
 
-fn is_cesium_cmd(msg: &Message) -> bool {
+async fn is_cesium_cmd(msg: &Message) -> bool {
     msg.content.split_whitespace().next() == Some("$cesium")
 }
 
-fn is_mc_cmd(ctx: &mut Context, msg: &Message) -> bool {
+async fn is_mc_cmd(ctx: &Context, msg: &Message) -> bool {
     msg.content
         .trim()
         .trim_start_matches('$')
@@ -274,6 +298,7 @@ fn is_mc_cmd(ctx: &mut Context, msg: &Message) -> bool {
         && msg
             .channel_id
             .name(&ctx)
+            .await
             .map(|name| name == "minecraft")
             .unwrap_or_default()
 }

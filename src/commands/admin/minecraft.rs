@@ -19,13 +19,14 @@ struct Minecraft;
 #[description("Run a command as op on the server")]
 #[usage("command 1 ; command 2 ; ...")]
 #[min_args(1)]
-fn server_do(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn server_do(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     for command in args.rest().split(";") {
         let output = minecraft_server_get(&[command.trim()])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         msg.channel_id
-            .say(&ctx, format!("`{}`: {}{}", command, stdout, stderr))?;
+            .say(&ctx, format!("`{}`: {}{}", command, stdout, stderr))
+            .await?;
     }
     Ok(())
 }
@@ -34,34 +35,36 @@ fn server_do(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[description("Associate a minecraft username with the discord's username")]
 #[usage("minecraft_nickname @mention")]
 #[min_args(2)]
-fn pair(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn pair(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let nick = args.single::<String>()?;
     let user = args.single::<UserId>()?;
-    let share_map = ctx.data.write();
+    let share_map = ctx.data.write().await;
     share_map
         .get::<crate::daemons::minecraft::Minecraft>()
         .unwrap()
         .write()
+        .await
         .pair(nick, user)?;
-    msg.channel_id.say(&ctx, "User paired")?;
+    msg.channel_id.say(&ctx, "User paired").await?;
     Ok(())
 }
 
 #[command]
 #[description("Set's this guild as the one to use for the minecraft daemon")]
 #[usage("")]
-fn pair_guild_set(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let share_map = ctx.data.write();
+async fn pair_guild_set(ctx: &Context, msg: &Message) -> CommandResult {
+    let share_map = ctx.data.write().await;
     match msg.guild_id {
         Some(gid) => {
             share_map
                 .get::<crate::daemons::minecraft::Minecraft>()
                 .unwrap()
                 .write()
+                .await
                 .set_guild_id(gid)?;
-            msg.channel_id.say(&ctx, "Guild id set")?
+            msg.channel_id.say(&ctx, "Guild id set").await?
         }
-        None => msg.channel_id.say(&ctx, "Couldn't find guild id")?,
+        None => msg.channel_id.say(&ctx, "Couldn't find guild id").await?,
     };
     Ok(())
 }

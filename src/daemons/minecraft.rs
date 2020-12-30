@@ -1,11 +1,10 @@
 use super::Daemon;
 use crate::util::minecraft_server_get;
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serenity::{
-    http::Http,
     model::id::{GuildId, UserId},
-    prelude::TypeMapKey,
+    prelude::{RwLock, TypeMapKey},
+    CacheAndHttp,
 };
 use std::{
     collections::HashMap,
@@ -92,6 +91,7 @@ impl Display for Color {
     }
 }
 
+#[serenity::async_trait]
 impl Daemon for Minecraft {
     fn name(&self) -> String {
         String::from("Minecraft colours")
@@ -101,7 +101,7 @@ impl Daemon for Minecraft {
         Duration::from_secs(60 * 30)
     }
 
-    fn run(&self, http: &Http) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(&self, cache_http: &CacheAndHttp) -> Result<(), Box<dyn std::error::Error>> {
         let guild_id = match self.guild_id {
             Some(g) => g,
             None => return Ok(()),
@@ -116,8 +116,8 @@ impl Daemon for Minecraft {
             for name in list.split(',').map(str::trim).filter(|x| !x.is_empty()) {
                 match self.names.get(name) {
                     Some(uuid) => {
-                        let member = guild_id.member(http, uuid)?;
-                        let guild = guild_id.to_partial_guild(http)?;
+                        let member = guild_id.member(cache_http, uuid).await?;
+                        let guild = guild_id.to_partial_guild(&cache_http.http).await?;
                         let c = member
                             .roles
                             .iter()

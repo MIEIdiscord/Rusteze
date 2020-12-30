@@ -25,3 +25,5 @@ where
         ))
     }
 }
+
+pub type SendSyncError = Box<dyn std::error::Error + Send + Sync>;

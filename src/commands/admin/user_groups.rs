@@ -18,19 +18,21 @@ struct UserGroups;
 #[description("Set a role as a user group")]
 #[usage("RoleMention description")]
 #[min_args(2)]
-fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let role = args.single::<RoleId>()?;
-    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role)? {
+    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role).await? {
         return Err("Role doesn't exist".into());
     }
     let desc = args.rest();
     ctx.data
         .write()
+        .await
         .get_mut::<Config>()
         .expect("Config not loaded")
         .write()
+        .await
         .add_user_group(role, desc.to_string())?;
-    msg.channel_id.say(&ctx, "Role added")?;
+    msg.channel_id.say(&ctx, "Role added").await?;
     Ok(())
 }
 
@@ -38,17 +40,19 @@ fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[description("Unset a role as a user group")]
 #[usage("RoleMention")]
 #[min_args(1)]
-fn remove(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let role = args.single::<RoleId>()?;
-    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role)? {
+    if !role_exists(ctx, msg.guild_id.ok_or("Not in a guild")?, role).await? {
         return Err("Role doesn't exist".into());
     }
     ctx.data
         .write()
+        .await
         .get_mut::<Config>()
         .expect("Config not loaded")
         .write()
+        .await
         .remove_user_group(role)?;
-    msg.channel_id.say(&ctx, "Role removed")?;
+    msg.channel_id.say(&ctx, "Role removed").await?;
     Ok(())
 }
