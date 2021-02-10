@@ -11,8 +11,7 @@ use serenity::{
 use std::{
     collections::HashMap,
     fs::File,
-    fs::OpenOptions,
-    io::{self, BufReader, BufWriter},
+    io,
     sync::Arc,
 };
 
@@ -26,13 +25,7 @@ pub struct MiEI {
 
 impl MiEI {
     fn write_courses(&self) -> Result<(), io::Error> {
-        let file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(COURSES)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer(writer, &self)?;
+        serde_json::to_writer(File::create(COURSES)?, &self)?;
         Ok(())
     }
 
@@ -260,11 +253,7 @@ impl Course {
 }
 
 pub fn read_courses() -> io::Result<MiEI> {
-    let file = File::open(COURSES)?;
-    let reader = BufReader::new(file);
-
-    let u = serde_json::from_reader(reader)?;
-    Ok(u)
+    Ok(serde_json::from_reader(File::open(COURSES)?)?)
 }
 
 pub struct Channel<'a> {
