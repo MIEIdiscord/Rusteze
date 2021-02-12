@@ -24,7 +24,7 @@ use serenity::{
     },
     prelude::*,
 };
-use std::{os::unix::process::CommandExt, process::Command as Fork, str};
+use std::{os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
 use user_groups::*;
 
 #[group]
@@ -115,12 +115,12 @@ pub async fn update(ctx: &Context, msg: &Message) -> CommandResult {
     if !out.status.success() {
         return Err(format!(
             "Error pulling!
-            ```
-            ============= stdout =============
-            {}
-            ============= stderr =============
-            {}
-            ```",
+```
+============= stdout =============
+{}
+============= stderr =============
+{}
+```",
             str::from_utf8(&out.stdout)?,
             str::from_utf8(&out.stderr)?
         )
@@ -129,31 +129,40 @@ pub async fn update(ctx: &Context, msg: &Message) -> CommandResult {
     check_msg(message).await?;
 
     let message = msg.channel_id.say(&ctx, "Compiling...").await?;
+    let start = Instant::now();
     let out = &Fork::new("cargo")
-        .args(&[
-            "build",
-            if cfg!(debug_assertions) {
-                ""
-            } else {
-                "--release"
-            },
-        ])
+        .args(if cfg!(debug_assertions) {
+            &["build", "--quiet"][..]
+        } else {
+            &["build", "--quiet", "--release"][..]
+        })
         .output()?;
     if !out.status.success() {
         return Err(format!(
             "Build Error!
-            ```
-            ============= stderr =============
-            {}
-            ```",
+```
+============= stderr =============
+{}
+```",
             {
                 let s = str::from_utf8(&out.stderr)?;
-                &s[s.len() - 1500..]
+                &s[s.len().saturating_sub(1500)..]
             }
         )
         .into());
     }
     check_msg(message).await?;
+    let elapsed = start.elapsed();
+    msg.channel_id
+        .say(
+            &ctx,
+            format!(
+                "Compiled in {}m{}s",
+                elapsed.as_secs() / 60,
+                elapsed.as_secs() % 60
+            ),
+        )
+        .await?;
 
     reboot_bot(ctx, msg.channel_id).await
 }
