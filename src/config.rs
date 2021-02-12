@@ -1,12 +1,11 @@
-use parking_lot::RwLock;
+use crate::util::SendSyncError as Error;
 use serde::{Deserialize, Serialize};
 use serenity::{
     model::id::{ChannelId, RoleId},
-    prelude::TypeMapKey,
+    prelude::{RwLock, TypeMapKey},
 };
 use std::{
     collections::{HashMap, HashSet},
-    error,
     fs::File,
     sync::Arc,
 };
@@ -28,15 +27,15 @@ pub struct Config {
 const CONFIG: &str = "config.json";
 
 impl Config {
-    fn serialize(&self) -> Result<(), Box<dyn error::Error>> {
+    fn serialize(&self) -> Result<(), Error> {
         serde_json::to_writer(File::create(CONFIG)?, self).map_err(|e| e.into())
     }
 
-    pub fn new() -> Result<Self, Box<dyn error::Error>> {
+    pub fn new() -> Result<Self, Error> {
         serde_json::from_reader(File::open(CONFIG)?).map_err(|e| e.into())
     }
 
-    pub fn add_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Box<dyn error::Error>> {
+    pub fn add_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Error> {
         self.allowed_channels.insert(ch);
         Config::serialize(self)
     }
@@ -49,7 +48,7 @@ impl Config {
         self.allowed_channels.iter()
     }
 
-    pub fn remove_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Box<dyn error::Error>> {
+    pub fn remove_allowed_channel(&mut self, ch: ChannelId) -> Result<(), Error> {
         self.allowed_channels.remove(&ch);
         Config::serialize(self)
     }
@@ -62,7 +61,7 @@ impl Config {
         &mut self,
         greet_channel: ChannelId,
         msg: Option<String>,
-    ) -> Result<(), Box<dyn error::Error>> {
+    ) -> Result<(), Error> {
         if let Some(msg) = msg.or_else(|| self.greet_message.take()) {
             self.greet_message = Some(msg);
             self.greet_channel = Some(greet_channel);
@@ -72,7 +71,7 @@ impl Config {
         }
     }
 
-    pub fn remove_greet_channel(&mut self) -> Result<(), Box<dyn error::Error>> {
+    pub fn remove_greet_channel(&mut self) -> Result<(), Error> {
         self.greet_channel = None;
         Config::serialize(self)
     }
@@ -81,7 +80,7 @@ impl Config {
         self.greet_message.as_ref().map(|s| s.as_str())
     }
 
-    pub fn set_log_channel(&mut self, ch: Option<ChannelId>) -> Result<(), Box<dyn error::Error>> {
+    pub fn set_log_channel(&mut self, ch: Option<ChannelId>) -> Result<(), Error> {
         self.log_channel = ch;
         Config::serialize(self)
     }
@@ -90,11 +89,7 @@ impl Config {
         self.log_channel
     }
 
-    pub fn add_user_group(
-        &mut self,
-        ch: RoleId,
-        desc: String,
-    ) -> Result<(), Box<dyn error::Error>> {
+    pub fn add_user_group(&mut self, ch: RoleId, desc: String) -> Result<(), Error> {
         self.user_groups.insert(ch, desc);
         Config::serialize(self)
     }
@@ -107,7 +102,7 @@ impl Config {
         self.user_groups.iter().map(|(r, s)| (r, s.as_str()))
     }
 
-    pub fn remove_user_group(&mut self, ch: RoleId) -> Result<(), Box<dyn error::Error>> {
+    pub fn remove_user_group(&mut self, ch: RoleId) -> Result<(), Error> {
         self.user_groups.remove(&ch);
         Config::serialize(self)
     }

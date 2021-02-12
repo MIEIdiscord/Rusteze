@@ -1,4 +1,8 @@
 use crate::channels::MiEI;
+use futures::{
+    future,
+    stream::{self, StreamExt},
+};
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use serenity::{
@@ -26,9 +30,9 @@ struct Study;
 #[example("Algebra PI")]
 #[example("1ano")]
 #[example("2ano1sem")]
-pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read();
+pub async fn study(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let roles = trash.get::<MiEI>().unwrap().read().await;
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -36,16 +40,20 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         &ctx,
         msg.guild_id.ok_or("Guild id not found")?,
         true,
-    );
+    )
+    .await;
     if names.is_empty() {
         msg.channel_id
-            .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")?;
+            .say(&ctx.http, "Não foste adicionado(a) a nenhuma cadeira nova.")
+            .await?;
     } else {
-        msg.member(&ctx.cache)
-            .map(|mut x| x.add_roles(&ctx.http, ids.as_slice()))
-            .transpose()?;
+        msg.member(&ctx)
+            .await?
+            .add_roles(&ctx.http, ids.as_slice())
+            .await?;
         msg.channel_id
-            .say(&ctx.http, format!("Studying {}", names.join(" ")))?;
+            .say(&ctx.http, format!("Studying {}", names.join(" ")))
+            .await?;
     }
     Ok(())
 }
@@ -56,9 +64,9 @@ pub fn study(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[example("Algebra PI")]
 #[example("1ano")]
 #[example("2ano1sem")]
-pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read();
+pub async fn unstudy(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let roles = trash.get::<MiEI>().unwrap().read().await;
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -66,21 +74,25 @@ pub fn unstudy(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         &ctx,
         msg.guild_id.ok_or("Guild id not found")?,
         false,
-    );
+    )
+    .await;
     if names.is_empty() {
         msg.channel_id
-            .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")?;
+            .say(&ctx.http, "Não foste removido(a) de nenhuma cadeira.")
+            .await?;
     } else {
-        msg.member(&ctx.cache)
-            .map(|mut x| x.remove_roles(&ctx.http, ids.as_slice()))
-            .transpose()?;
+        msg.member(&ctx)
+            .await?
+            .remove_roles(&ctx.http, ids.as_slice())
+            .await?;
         msg.channel_id
-            .say(&ctx.http, format!("Stopped studying: {}", names.join(" ")))?;
+            .say(&ctx.http, format!("Stopped studying: {}", names.join(" ")))
+            .await?;
     }
     Ok(())
 }
 
-fn parse_study_args<'args, 'miei: 'args>(
+async fn parse_study_args<'args, 'miei: 'args>(
     args: &'args str,
     roles: &'miei MiEI,
     user: &'_ User,
@@ -106,29 +118,55 @@ fn parse_study_args<'args, 'miei: 'args>(
         ids.push(r);
         names.push(n);
     };
-    let not_has_role = |(_, r): &_| !filter || !user.has_role(ctx, guild_id, r).unwrap_or(true);
-    for c in REGEX.captures_iter(args) {
+    async fn not_has_role(
+        ctx: &Context,
+        guild_id: GuildId,
+        r: RoleId,
+        user: &User,
+        filter: bool,
+    ) -> bool {
+        !filter || !user.has_role(ctx, guild_id, r).await.unwrap_or(true)
+    }
+    let captures = REGEX.captures_iter(args).collect::<Vec<_>>();
+    for c in captures {
         if let Some(wild) = c.name("wildcard") {
-            roles
-                .wildcard_roles(wild.as_str())
-                .filter(not_has_role)
-                .for_each(&mut push);
+            stream::iter(roles.wildcard_roles(wild.as_str()))
+                .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+                .for_each(|x| future::ready(push(x)))
+                .await;
         } else if let Some(course) = c.name("course") {
-            roles
-                .role_by_name(course.as_str())
-                .map(|r| (course.as_str(), r))
-                .filter(not_has_role)
-                .map(&mut push);
+            stream::iter(
+                roles
+                    .role_by_name(course.as_str())
+                    .map(|r| (course.as_str(), r)),
+            )
+            .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+            .for_each(|x| future::ready(push(x)))
+            .await;
         } else {
-            c.name("year").and_then(|year| match c.name("sem") {
-                Some(sem) => roles
-                    .roles_by_year_and_semester(year.as_str(), sem.as_str())
-                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
-                None => roles
-                    .roles_by_year(year.as_str())
-                    .map(|rs| rs.filter(not_has_role).for_each(&mut push)),
-            });
-        };
+            if let Some(year) = c.name("year") {
+                match c.name("sem") {
+                    Some(sem) => {
+                        if let Some(rs) =
+                            roles.roles_by_year_and_semester(year.as_str(), sem.as_str())
+                        {
+                            stream::iter(rs)
+                                .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+                                .for_each(|x| future::ready(push(x)))
+                                .await;
+                        }
+                    }
+                    None => {
+                        if let Some(rs) = roles.roles_by_year(year.as_str()) {
+                            stream::iter(rs)
+                                .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+                                .for_each(|x| future::ready(push(x)))
+                                .await;
+                        }
+                    }
+                }
+            }
+        }
     }
     (ids, names)
 }
@@ -143,24 +181,30 @@ struct Courses;
 #[usage("ano semestre [CADEIRA, ...]")]
 #[min_args(3)]
 #[required_permissions(ADMINISTRATOR)]
-pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.write();
-    let mut roles = trash.get::<MiEI>().unwrap().write();
-    let mut iter = args.raw();
-    let year = iter.next();
-    let semester = iter.next();
+pub async fn mk(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.write().await;
+    let mut roles = trash.get::<MiEI>().unwrap().write().await;
+    let mut args = args.raw();
+    let year = args.next();
+    let semester = args.next();
     if let (Some(y), Some(s), Some(g)) = (year, semester, msg.guild_id) {
-        let new_roles = iter
-            .filter_map(|x| roles.create_role(ctx, &y, &s, x, g).transpose())
-            .collect::<Result<Vec<&str>, Box<dyn std::error::Error>>>()?;
+        let mut new_roles = Vec::new();
+        for course in args {
+            if let Some(c) = roles.create_role(ctx, &y, &s, course, g).await? {
+                new_roles.push(c);
+            }
+        }
         if new_roles.is_empty() {
             msg.channel_id
-                .say(&ctx.http, "Não foram criadas novas cadeiras.")?;
+                .say(&ctx.http, "Não foram criadas novas cadeiras.")
+                .await?;
         } else {
-            msg.channel_id.say(
-                &ctx.http,
-                format!("Cadeiras criadas: {}", new_roles.join(" ")),
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Cadeiras criadas: {}", new_roles.join(" ")),
+                )
+                .await?;
         }
     }
     Ok(())
@@ -170,22 +214,27 @@ pub fn mk(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[description("Remove salas das cadeiras especificadas.")]
 #[usage("[CADEIRA, ...]")]
 #[required_permissions(ADMINISTRATOR)]
-pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.write();
-    let mut roles = trash.get::<MiEI>().unwrap().write();
+pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.write().await;
+    let mut roles = trash.get::<MiEI>().unwrap().write().await;
     if let Some(guild) = msg.guild_id {
-        let rm_roles = args
-            .raw()
-            .filter_map(|x| roles.remove_role(x, &ctx, guild).ok())
-            .collect::<Vec<&str>>();
+        let mut rm_roles = Vec::new();
+        for course in args.raw() {
+            if let Ok(c) = roles.remove_role(course, &ctx, guild).await {
+                rm_roles.push(c);
+            }
+        }
         if rm_roles.is_empty() {
             msg.channel_id
-                .say(&ctx.http, "Não foram removidas cadeiras.")?;
+                .say(&ctx.http, "Não foram removidas cadeiras.")
+                .await?;
         } else {
-            msg.channel_id.say(
-                &ctx.http,
-                format!("Cadeiras removidas: {}", rm_roles.join(" ")),
-            )?;
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Cadeiras removidas: {}", rm_roles.join(" ")),
+                )
+                .await?;
         }
     }
     Ok(())
@@ -194,35 +243,37 @@ pub fn rm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description("Lista as cadeiras disponíveis.")]
 #[usage("")]
-pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let trash = ctx.data.read();
-    let roles = trash.get::<MiEI>().unwrap().read();
+pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let roles = trash.get::<MiEI>().unwrap().read().await;
 
-    msg.channel_id.send_message(&ctx.http, |m| {
-        m.embed(|e| {
-            e.title("Informação sobre as cadeiras disponíveis")
-                .description(
-                    "`$study CADEIRA` junta-te às salas das cadeiras.
+    msg.channel_id
+        .send_message(&ctx.http, |m| {
+            m.embed(|e| {
+                e.title("Informação sobre as cadeiras disponíveis")
+                    .description(
+                        "`$study CADEIRA` junta-te às salas das cadeiras.
 `$study Xano` junta-te a todas as cadeiras de um ano.",
-                )
-                .fields(
-                    roles
-                        .iter()
-                        .fold(BTreeMap::new(), |mut acc, c| {
-                            let s = acc
-                                .entry(format!("{}ano{}semestre", c.year, c.semester))
-                                .or_insert_with(String::new);
-                            s.push_str(c.channel);
-                            s.push_str("\n");
-                            acc
-                        })
-                        .iter()
-                        .map(|(k, v)| (k, v, true)),
-                )
-                .colour(Colour::from_rgb(0, 0, 0))
-        });
-        m
-    })?;
+                    )
+                    .fields(
+                        roles
+                            .iter()
+                            .fold(BTreeMap::new(), |mut acc, c| {
+                                let s = acc
+                                    .entry(format!("{}ano{}semestre", c.year, c.semester))
+                                    .or_insert_with(String::new);
+                                s.push_str(c.channel);
+                                s.push_str("\n");
+                                acc
+                            })
+                            .iter()
+                            .map(|(k, v)| (k, v, true)),
+                    )
+                    .colour(Colour::from_rgb(0, 0, 0))
+            });
+            m
+        })
+        .await?;
 
     Ok(())
 }

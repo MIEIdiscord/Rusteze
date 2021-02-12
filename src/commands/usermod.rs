@@ -20,31 +20,33 @@ struct UserMod;
 #[description("Join a role")]
 #[usage("role_name")]
 #[min_args(1)]
-pub fn join(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn join(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let request = args.rest();
-    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request)? {
+    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request).await? {
         Some(role) => role,
         None => return Err("No such role".into()),
     };
     if ctx
         .data
         .read()
+        .await
         .get::<Config>()
         .expect("Config not loaded")
         .read()
+        .await
         .user_group_exists(role)
     {
-        match msg
-            .member(&ctx)
-            .filter(|m| !m.roles.contains(&role))
-            .map(|mut m| m.add_role(&ctx, role))
-            .transpose()?
-        {
-            Some(_) => msg.channel_id.say(&ctx, "User group added")?,
-            None => msg.channel_id.say(&ctx, "No user group added")?,
-        };
+        let mut member = msg.member(&ctx).await?;
+        if member.roles.contains(&role) {
+            member.add_role(&ctx, role).await?;
+            msg.channel_id.say(&ctx, "User group added").await?;
+        } else {
+            msg.channel_id.say(&ctx, "No user group added").await?;
+        }
     } else {
-        msg.channel_id.say(&ctx, "That role is not a user group")?;
+        msg.channel_id
+            .say(&ctx, "That role is not a user group")
+            .await?;
     }
     Ok(())
 }
@@ -52,71 +54,80 @@ pub fn join(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command("-d")]
 #[description("Leave a role")]
 #[usage("role_name")]
-pub fn leave(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let request = args.rest();
-    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request)? {
+    let role = match role_by_name(ctx, msg.guild_id.ok_or("Not in a server")?, request).await? {
         Some(role) => role,
         None => return Err("No such role".into()),
     };
     if ctx
         .data
         .read()
+        .await
         .get::<Config>()
         .expect("Config not loaded")
         .read()
+        .await
         .user_group_exists(role)
     {
-        match msg
-            .member(&ctx)
-            .filter(|m| m.roles.contains(&role))
-            .map(|mut m| m.remove_role(&ctx, role))
-            .transpose()?
-        {
-            Some(_) => msg.channel_id.say(&ctx, "User group removed")?,
-            None => msg.channel_id.say(&ctx, "No user group removed")?,
-        };
+        let mut member = msg.member(&ctx).await?;
+        if member.roles.contains(&role) {
+            member.remove_role(&ctx, role).await?;
+            msg.channel_id.say(&ctx, "User group removed").await?;
+        } else {
+            msg.channel_id.say(&ctx, "No user group removed").await?;
+        }
     } else {
-        msg.channel_id.say(&ctx, "That role is not a user group")?;
+        msg.channel_id
+            .say(&ctx, "That role is not a user group")
+            .await?;
     }
     Ok(())
 }
 
 #[command("-l")]
 #[description("List user groups")]
-pub fn list(ctx: &mut Context, msg: &Message) -> CommandResult {
-    let map = ctx.data.read();
-    let config = map.get::<Config>().expect("Config not loaded").read();
+pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
+    let map = ctx.data.read().await;
+    let config = map.get::<Config>().expect("Config not loaded").read().await;
     let guild = msg
         .guild_id
         .ok_or("Not in a server")?
-        .to_partial_guild(&ctx)?;
-    msg.channel_id.send_message(&ctx, |m| {
-        m.embed(|e| {
-            e.title("User groups")
-                .description(
-                    "`$usermod -a Role` adiciona te a um user group
+        .to_partial_guild(&ctx)
+        .await?;
+    msg.channel_id
+        .send_message(&ctx, |m| {
+            m.embed(|e| {
+                e.title("User groups")
+                    .description(
+                        "`$usermod -a Role` adiciona te a um user group
 `$usermod -d Role` remove te de um user group",
-                )
-                .fields(
-                    config
-                        .user_groups()
-                        .filter_map(|(r, d)| guild.roles.get(&r).map(|r| (&r.name, d)))
-                        .map(|(r, d)| (r, d, true)),
-                )
+                    )
+                    .fields(
+                        config
+                            .user_groups()
+                            .filter_map(|(r, d)| guild.roles.get(&r).map(|r| (&r.name, d)))
+                            .map(|(r, d)| (r, d, true)),
+                    )
+            })
         })
-    })?;
+        .await?;
     Ok(())
 }
 
-pub fn role_exists(
+pub async fn role_exists(
     ctx: &Context,
     guild_id: GuildId,
     role: RoleId,
 ) -> Result<bool, serenity::Error> {
-    Ok(guild_id.to_partial_guild(&ctx)?.roles.contains_key(&role))
+    Ok(guild_id
+        .to_partial_guild(&ctx)
+        .await?
+        .roles
+        .contains_key(&role))
 }
 
-pub fn role_by_name(
+pub async fn role_by_name(
     ctx: &Context,
     guild_id: GuildId,
     role: &str,
@@ -125,7 +136,8 @@ pub fn role_by_name(
         .ascii_case_insensitive(true)
         .build(&[role]);
     Ok(guild_id
-        .to_partial_guild(ctx)?
+        .to_partial_guild(ctx)
+        .await?
         .roles
         .values()
         .find(|r| finder.is_match(&r.name))

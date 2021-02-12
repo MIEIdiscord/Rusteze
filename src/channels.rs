@@ -1,20 +1,14 @@
-use parking_lot::RwLock;
+use crate::util::SendSyncError;
 use serde::{Deserialize, Serialize};
-use serenity::framework::standard::CommandResult;
-use serenity::model::{
-    channel::{ChannelType, PermissionOverwrite, PermissionOverwriteType::Role},
-    id::{ChannelId, GuildId, RoleId},
-    permissions::Permissions,
+use serenity::{
+    model::{
+        channel::{ChannelType, PermissionOverwrite, PermissionOverwriteType::Role},
+        id::{ChannelId, GuildId, RoleId},
+        permissions::Permissions,
+    },
+    prelude::{Context, RwLock, TypeMapKey},
 };
-use serenity::prelude::{Context, TypeMapKey};
-use std::collections::HashMap;
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::io;
-use std::{
-    io::{BufReader, BufWriter, Error, ErrorKind},
-    sync::Arc,
-};
+use std::{collections::HashMap, fs::File, io, sync::Arc};
 
 const COURSES: &str = "courses.json";
 
@@ -26,13 +20,7 @@ pub struct MiEI {
 
 impl MiEI {
     fn write_courses(&self) -> Result<(), io::Error> {
-        let file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(COURSES)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer(writer, &self)?;
+        serde_json::to_writer(File::create(COURSES)?, &self)?;
         Ok(())
     }
 
@@ -70,14 +58,14 @@ impl MiEI {
             .and_then(|y| y.roles_by_semester(semester))
     }
 
-    pub fn create_role<'a>(
+    pub async fn create_role<'a>(
         &mut self,
         ctx: &Context,
         year: &str,
         semester: &str,
         course: &'a str,
         guild: GuildId,
-    ) -> Result<Option<&'a str>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<&'a str>, SendSyncError> {
         let upper_course = course.to_uppercase();
         if self.role_exists(&upper_course) {
             Ok(None)
@@ -86,6 +74,7 @@ impl MiEI {
                 .create_role(&ctx.http, |z| {
                     z.hoist(false).mentionable(true).name(&upper_course)
                 })
+                .await
                 .unwrap();
             let perms = vec![
                 PermissionOverwrite {
@@ -105,6 +94,7 @@ impl MiEI {
                         .kind(ChannelType::Category)
                         .permissions(perms)
                 })
+                .await
                 .unwrap();
             let duvidas = guild
                 .create_channel(&ctx, |c| {
@@ -112,6 +102,7 @@ impl MiEI {
                         .kind(ChannelType::Text)
                         .category(category.id)
                 })
+                .await
                 .unwrap();
             let anexos = guild
                 .create_channel(&ctx, |c| {
@@ -119,6 +110,7 @@ impl MiEI {
                         .kind(ChannelType::Text)
                         .category(category.id)
                 })
+                .await
                 .unwrap();
             let courses = Course {
                 role: role.id,
@@ -139,22 +131,23 @@ impl MiEI {
             .add_role(role_name, course, semester);
     }
 
-    pub fn remove_role<'a>(
+    pub async fn remove_role<'a>(
         &mut self,
         role_name: &'a str,
         ctx: &Context,
         guild: GuildId,
-    ) -> io::Result<&'a str> {
-        let role = self
+    ) -> serenity::Result<&'a str> {
+        if let Some(x) = self
             .courses
             .values_mut()
             .filter_map(|x| x.pop_role(role_name))
-            .map(|x| x.remove_course(&ctx, guild))
-            .next();
-        self.write_courses()?;
-        match role {
-            Some(_) => Ok(role_name),
-            None => Err(Error::new(ErrorKind::Other, "Error writing to JSON")),
+            .next()
+        {
+            x.remove_course(&ctx, guild).await?;
+            self.write_courses()?;
+            Ok(role_name)
+        } else {
+            Err(serenity::Error::Other("No such role"))
         }
     }
 
@@ -245,21 +238,17 @@ struct Course {
 }
 
 impl Course {
-    fn remove_course(&self, ctx: &Context, guild: GuildId) -> CommandResult {
+    async fn remove_course(&self, ctx: &Context, guild: GuildId) -> serenity::Result<()> {
         for channel in &self.channels {
-            channel.delete(&ctx.http)?;
+            channel.delete(&ctx.http).await?;
         }
-        guild.delete_role(&ctx.http, self.role)?;
+        guild.delete_role(&ctx.http, self.role).await?;
         Ok(())
     }
 }
 
 pub fn read_courses() -> io::Result<MiEI> {
-    let file = File::open(COURSES)?;
-    let reader = BufReader::new(file);
-
-    let u = serde_json::from_reader(reader)?;
-    Ok(u)
+    Ok(serde_json::from_reader(File::open(COURSES)?)?)
 }
 
 pub struct Channel<'a> {
