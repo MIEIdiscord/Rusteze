@@ -1,14 +1,20 @@
 pub mod minecraft;
-use futures::stream::{self, StreamExt};
+use futures::{
+    future::FutureExt,
+    stream::{self, StreamExt},
+};
 use serenity::{prelude::RwLock, CacheAndHttp};
 use std::{
     error::Error,
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::sync::{
-    mpsc::{self, error::TryRecvError, Sender},
-    Notify,
+use tokio::{
+    sync::{
+        mpsc::{self, Sender},
+        Notify,
+    },
+    time::timeout,
 };
 
 #[serenity::async_trait]
@@ -38,13 +44,13 @@ impl DaemonThread {
         u: usize,
     ) -> Result<(), mpsc::error::SendError<DaemonThreadMsg>> {
         self.channel.send(DaemonThreadMsg::RunOne(u)).await?;
-        self.notify.notify();
+        self.notify.notify_one();
         Ok(())
     }
 
     pub async fn run_all(&mut self) -> Result<(), mpsc::error::SendError<DaemonThreadMsg>> {
         self.channel.send(DaemonThreadMsg::RunAll).await?;
-        self.notify.notify();
+        self.notify.notify_one();
         Ok(())
     }
 }
@@ -78,8 +84,8 @@ pub async fn start_daemon_thread(
     let wait_to_be = Arc::clone(&notify);
     tokio::spawn(async move {
         loop {
-            match rx.try_recv() {
-                Ok(DaemonThreadMsg::RunAll) => {
+            match rx.recv().now_or_never() {
+                Some(Some(DaemonThreadMsg::RunAll)) => {
                     stream::iter(&daemons)
                         .for_each(|(_, d)| {
                             let http = &*http;
@@ -89,12 +95,12 @@ pub async fn start_daemon_thread(
                         })
                         .await;
                 }
-                Ok(DaemonThreadMsg::RunOne(i)) => {
+                Some(Some(DaemonThreadMsg::RunOne(i))) => {
                     if let Some((_, d)) = daemons.get(i) {
                         run(&*d.read().await, &*http).await;
                     }
                 }
-                Err(TryRecvError::Empty) => {
+                None => {
                     let mut smallest_next_instant = None;
                     let now = Instant::now();
                     for (next_run, daemon) in &mut daemons {
@@ -112,12 +118,12 @@ pub async fn start_daemon_thread(
                         None => break crate::log!("Deamon thread terminating"),
                     }
                 }
-                Err(_) => break crate::log!("Deamon thread terminating"),
+                Some(None) => break crate::log!("Deamon thread terminating"),
             }
             let now = Instant::now();
             match next_global_run {
                 Some(s) => {
-                    let _ = tokio::time::timeout(s - now, wait_to_be.notified()).await;
+                    let _ = timeout(s - now, wait_to_be.notified()).await;
                 }
                 None => break crate::log!("Deamon thread terminating"),
             };

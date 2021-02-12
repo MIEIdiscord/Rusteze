@@ -26,7 +26,7 @@ pub async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
     "Informação relativa à linguagem de programação utilizada para desenvolvimento do Bot."
 )]
 pub async fn info(ctx: &Context, msg: &Message) -> CommandResult {
-    msg.channel_id.say(&ctx.http, "Powered by Rust™").await?;
+    msg.channel_id.say(&ctx.http, "Powered by Java8™").await?;
     Ok(())
 }
 

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
         macros::{check, command, group},
-        ArgError, Args, CheckResult, CommandOptions, CommandResult, Reason,
+        ArgError, Args, CommandOptions, CommandResult, Reason,
     },
     http::{CacheHttp, Http},
     model::{
@@ -42,16 +42,16 @@ pub async fn is_mod_or_cesium(
     msg: &Message,
     _: &mut Args,
     _: &CommandOptions,
-) -> CheckResult {
+) -> Result<(), Reason> {
     let (m, gid) = match (&msg.member, msg.guild_id) {
         (Some(m), Some(g)) => (m, g),
-        _ => return CheckResult::Failure(Reason::User("Not in a guild".to_string())),
+        _ => return Err(Reason::User("Not in a guild".to_string())),
     };
     if [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
         .iter()
         .any(|r| m.roles.contains(r))
     {
-        CheckResult::Success
+        Ok(())
     } else if gid
         .member(&ctx, msg.author.id)
         .and_then(|u| async move { u.permissions(&ctx).await })
@@ -59,9 +59,9 @@ pub async fn is_mod_or_cesium(
         .await
         .unwrap_or(false)
     {
-        CheckResult::Success
+        Ok(())
     } else {
-        CheckResult::Failure(Reason::User(
+        Err(Reason::User(
             "You don't have permission to use that command!".to_string(),
         ))
     }

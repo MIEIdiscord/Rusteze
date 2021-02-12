@@ -8,12 +8,7 @@ use serenity::{
     },
     prelude::{Context, RwLock, TypeMapKey},
 };
-use std::{
-    collections::HashMap,
-    fs::File,
-    io,
-    sync::Arc,
-};
+use std::{collections::HashMap, fs::File, io, sync::Arc};
 
 const COURSES: &str = "courses.json";
 
