@@ -140,8 +140,7 @@ impl MiEI {
         if let Some(x) = self
             .courses
             .values_mut()
-            .filter_map(|x| x.pop_role(role_name))
-            .next()
+            .find_map(|x| x.pop_role(role_name))
         {
             x.remove_course(&ctx, guild).await?;
             self.write_courses()?;
@@ -203,8 +202,7 @@ impl Year {
     fn get_role<'a>(&self, role_name: &'a str) -> Option<&Course> {
         self.courses
             .values()
-            .filter_map(|x| x.courses.get(role_name))
-            .next()
+            .find_map(|x| x.courses.get(role_name))
     }
 
     fn add_role(&mut self, role_name: &str, course: Course, semester: &str) {
@@ -220,8 +218,7 @@ impl Year {
     fn pop_role(&mut self, role_name: &str) -> Option<Course> {
         self.courses
             .values_mut()
-            .filter_map(|x| x.courses.remove(&role_name.to_uppercase()))
-            .next()
+            .find_map(|x| x.courses.remove(&role_name.to_uppercase()))
     }
 }
 

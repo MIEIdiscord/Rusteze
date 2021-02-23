@@ -27,6 +27,7 @@ use serenity::{
     },
     prelude::*,
     utils::Colour,
+    client::bridge::gateway::GatewayIntents,
 };
 use std::{collections::HashSet, fs, sync::Arc};
 
@@ -145,6 +146,7 @@ async fn main() {
     };
     let mut client_builder = Client::builder(token)
         .event_handler(Handler)
+        .intents(GatewayIntents::all())
         .type_map_insert::<MiEI>(Arc::new(RwLock::new(read_courses().unwrap_or_default())))
         .type_map_insert::<Config>(Arc::new(RwLock::new(Config::new().unwrap_or_default())))
         .type_map_insert::<ChannelMapping>(Arc::new(RwLock::new(
