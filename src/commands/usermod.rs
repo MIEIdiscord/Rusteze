@@ -37,7 +37,7 @@ pub async fn join(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         .user_group_exists(role)
     {
         let mut member = msg.member(&ctx).await?;
-        if member.roles.contains(&role) {
+        if !member.roles.contains(&role) {
             member.add_role(&ctx, role).await?;
             msg.channel_id.say(&ctx, "User group added").await?;
         } else {
