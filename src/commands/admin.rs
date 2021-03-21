@@ -260,34 +260,34 @@ pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> Comma
 #[usage("@user [time]")]
 #[min_args(1)]
 pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let user = args.single::<UserId>().unwrap();
-    let time = args.single::<u8>().unwrap_or(12);
+    let user = args.single::<UserId>()?;
+    let muted_hours = args.single::<u32>().unwrap_or(12);
     let guild = msg.guild_id.ok_or_else(|| "Not in a guild")?;
     let mut member = guild.member(ctx, user).await?;
-    let role_id = crate::get!(ctx, Config)
+    let mute_role = crate::get!(ctx, Config)
         .read()
         .await
         .get_mute_role()
         .ok_or_else(|| "Mute role not set")?;
-    member.add_role(ctx, role_id).await?;
+    member.add_role(ctx, mute_role).await?;
     if let Err(_) = crate::get!(ctx, TaskSender)
         .send(Box::new(Unmute {
-            when: Utc::now() + Duration::hours(time.into()),
+            when: Utc::now() + Duration::hours(muted_hours.into()),
             guild_id: member.guild_id,
             user_id: member.user.id,
-            role_id,
+            role_id: mute_role,
         }))
         .await
     {
-        return Err("Failed to set unmute timeout".into());
+        msg.channel_id.say(&ctx, "Failed to set unmute timeout.").await?;
     }
     member
         .user
         .dm(&ctx, |m| {
-            m.content(format!("You've been muted for {} hours", time))
+            m.content(format!("You've been muted for {} hours.", mute_role))
         })
         .await?;
-    msg.channel_id.say(&ctx, "muted").await?;
+    msg.channel_id.say(&ctx, "muted.").await?;
     Ok(())
 }
 
