@@ -5,14 +5,24 @@ mod log_channel;
 mod minecraft;
 mod user_groups;
 
+use crate::{
+    config::Config,
+    delayed_tasks::{Task, TaskSender},
+    util::Endpoint,
+};
 use channels::*;
+use chrono::{DateTime, Duration, Utc};
 use daemons::*;
-use futures::{future, stream::StreamExt};
+use futures::{
+    future::{self, TryFutureExt},
+    stream::StreamExt,
+};
 use greeting_channels::*;
 use log_channel::*;
 use minecraft::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -20,7 +30,7 @@ use serenity::{
     },
     model::{
         channel::Message,
-        id::{ChannelId, RoleId},
+        id::{ChannelId, GuildId, RoleId, UserId},
     },
     prelude::*,
 };
@@ -28,7 +38,16 @@ use std::{os::unix::process::CommandExt, process::Command as Fork, str, time::In
 use user_groups::*;
 
 #[group]
-#[commands(member_count, edit, update, reboot, say, whitelist)]
+#[commands(
+    member_count,
+    edit,
+    update,
+    reboot,
+    say,
+    whitelist,
+    mute,
+    set_mute_role
+)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
@@ -234,4 +253,80 @@ pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> Comma
         .say(&ctx, format!("Role has {} members", member_count))
         .await?;
     Ok(())
+}
+
+#[command]
+#[description("Mute a user for 12h or the specified time in hours")]
+#[usage("@user [time]")]
+#[min_args(1)]
+pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let user = args.single::<UserId>().unwrap();
+    let time = args.single::<u8>().unwrap_or(12);
+    let guild = msg.guild_id.ok_or_else(|| "Not in a guild")?;
+    let mut member = guild.member(ctx, user).await?;
+    let role_id = crate::get!(ctx, Config)
+        .read()
+        .await
+        .get_mute_role()
+        .ok_or_else(|| "Mute role not set")?;
+    member.add_role(ctx, role_id).await?;
+    if let Err(_) = crate::get!(ctx, TaskSender)
+        .send(Box::new(Unmute {
+            when: Utc::now() + Duration::hours(time.into()),
+            guild_id: member.guild_id,
+            user_id: member.user.id,
+            role_id,
+        }))
+        .await
+    {
+        return Err("Failed to set unmute timeout".into());
+    }
+    member
+        .user
+        .dm(&ctx, |m| {
+            m.content(format!("You've been muted for {} hours", time))
+        })
+        .await?;
+    msg.channel_id.say(&ctx, "muted").await?;
+    Ok(())
+}
+
+#[command]
+#[description("Sets the mute role")]
+#[usage("@role")]
+#[min_args(1)]
+pub async fn set_mute_role(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let role = args.single::<RoleId>()?;
+    crate::get!(ctx, Config).write().await.set_mute_role(role)?;
+    msg.channel_id.say(ctx, "Mute role set").await?;
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+struct Unmute {
+    when: DateTime<Utc>,
+    guild_id: GuildId,
+    user_id: UserId,
+    role_id: RoleId,
+}
+
+#[serenity::async_trait]
+#[typetag::serde]
+impl Task for Unmute {
+    fn when(&self) -> DateTime<Utc> {
+        self.when
+    }
+
+    async fn call(&mut self, user_data: &mut TypeMap) -> Result<(), Box<dyn std::error::Error>> {
+        crate::log!("Unmuting {}", self.user_id);
+        let uid = self.user_id;
+        if let Some(http) = user_data.get::<Endpoint>() {
+            self.guild_id
+                .member(http, self.user_id)
+                .and_then(|mut m| async move { m.remove_role(http, self.role_id).await })
+                .await?;
+            crate::log!("Umuted {}", uid);
+        }
+        Ok(())
+    }
 }

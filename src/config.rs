@@ -1,5 +1,6 @@
 use crate::util::SendSyncError as Error;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use serenity::{
     model::id::{ChannelId, RoleId},
     prelude::{RwLock, TypeMapKey},
@@ -10,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+#[serde_as]
 #[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -21,7 +23,10 @@ pub struct Config {
     #[serde(default)]
     log_channel: Option<ChannelId>,
     #[serde(default)]
+    #[serde_as(as = "HashMap<DisplayFromStr, _>")]
     user_groups: HashMap<RoleId, String>,
+    #[serde(default)]
+    mute_role: Option<RoleId>,
 }
 
 const CONFIG: &str = "config.json";
@@ -104,6 +109,15 @@ impl Config {
 
     pub fn remove_user_group(&mut self, ch: RoleId) -> Result<(), Error> {
         self.user_groups.remove(&ch);
+        Config::serialize(self)
+    }
+
+    pub fn get_mute_role(&self) -> Option<RoleId> {
+        self.mute_role
+    }
+
+    pub fn set_mute_role(&mut self, rl: RoleId) -> Result<(), Error> {
+        self.mute_role = Some(rl);
         Config::serialize(self)
     }
 }
