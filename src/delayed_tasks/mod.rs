@@ -4,7 +4,7 @@ use serenity::{
     async_trait,
     prelude::{TypeMap, TypeMapKey},
 };
-use std::{error::Error, fs::File, sync::Arc};
+use std::{any::Any, error::Error, fs::File, sync::Arc};
 use tokio::{
     self,
     sync::{
@@ -22,9 +22,14 @@ const TASKS_PATH: &str = "tasks.json";
 
 #[typetag::serde(tag = "type")]
 #[async_trait]
-pub trait Task: Send + Sync {
+pub trait Task: Send + Sync + Any + 'static {
     fn when(&self) -> DateTime<Utc>;
     async fn call(&mut self, user_data: &mut TypeMap) -> Result<(), Box<dyn Error>>;
+    fn is_diferent(&self, _: &dyn Any) -> bool {
+        false
+    }
+
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub struct TaskSender {
@@ -72,7 +77,10 @@ impl DelayedTasks {
     fn receive(&mut self) -> bool {
         loop {
             match self.channel.recv().now_or_never() {
-                Some(Some(task)) => self.tasks.push(task),
+                Some(Some(task)) => {
+                    self.tasks.retain(|x| x.is_diferent(task.as_any()));
+                    self.tasks.push(task)
+                },
                 None => break true,
                 Some(None) => break false,
             }

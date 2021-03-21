@@ -34,7 +34,7 @@ use serenity::{
     },
     prelude::*,
 };
-use std::{os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
+use std::{any::Any, os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
 use user_groups::*;
 
 #[group]
@@ -284,7 +284,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     member
         .user
         .dm(&ctx, |m| {
-            m.content(format!("You've been muted for {} hours.", mute_role))
+            m.content(format!("You've been muted for {} hours.", muted_hours))
         })
         .await?;
     msg.channel_id.say(&ctx, "muted.").await?;
@@ -328,5 +328,17 @@ impl Task for Unmute {
             crate::log!("Umuted {}", uid);
         }
         Ok(())
+    }
+
+    fn is_diferent(&self, other: &dyn Any) -> bool {
+        if let Some(unmute) = other.downcast_ref::<Self>() {
+            unmute.user_id != self.user_id
+        } else {
+            true
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
