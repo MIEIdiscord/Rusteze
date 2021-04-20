@@ -165,7 +165,7 @@ pub async fn after_hook(ctx: &Context, msg: &Message, cmd_name: &str, error: Com
             msg.author,
         ),
         Err(why) => {
-            let _ = msg.channel_id.say(ctx, &why);
+            let _ = msg.channel_id.say(ctx, &why).await;
             log!(
                 "Command '{}' for user '{}::{}' failed because {:?}",
                 cmd_name,
