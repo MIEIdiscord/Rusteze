@@ -3,6 +3,7 @@ name = "rusteze"
 version = "0.1.0"
 authors = ["Mendess2526 <pedro.mendes.26@gmail.com>"]
 edition = "2018"
+default-run = "rusteze"
 
 [dependencies]
 serenity = "0.10"
@@ -17,6 +18,11 @@ chrono = "0.4"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 futures = "0.3"
 pin-utils = "0.1"
+erased-serde = "0.3"
+typetag = "0.1"
+toml = "0.5"
+serde_with = "1"
+
 
 [profile.release]
 codegen-units = 1

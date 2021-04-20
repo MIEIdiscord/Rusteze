@@ -5,14 +5,24 @@ mod log_channel;
 mod minecraft;
 mod user_groups;
 
+use crate::{
+    config::Config,
+    delayed_tasks::{Task, TaskSender},
+    util::Endpoint,
+};
 use channels::*;
+use chrono::{DateTime, Duration, Utc};
 use daemons::*;
-use futures::{future, stream::StreamExt};
+use futures::{
+    future::{self, TryFutureExt},
+    stream::StreamExt,
+};
 use greeting_channels::*;
 use log_channel::*;
 use minecraft::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -20,15 +30,24 @@ use serenity::{
     },
     model::{
         channel::Message,
-        id::{ChannelId, RoleId},
+        id::{ChannelId, GuildId, RoleId, UserId},
     },
     prelude::*,
 };
-use std::{os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
+use std::{any::Any, os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
 use user_groups::*;
 
 #[group]
-#[commands(member_count, edit, update, reboot, say, whitelist)]
+#[commands(
+    member_count,
+    edit,
+    update,
+    reboot,
+    say,
+    whitelist,
+    mute,
+    set_mute_role
+)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
@@ -234,4 +253,104 @@ pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> Comma
         .say(&ctx, format!("Role has {} members", member_count))
         .await?;
     Ok(())
+}
+
+#[command]
+#[description("Mute a user for 12h or the specified time in hours")]
+#[usage("@user [time] [h|hours|m|minutes|s|seconds|d|days]")]
+#[min_args(1)]
+pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    fn pick_unit(s: &str) -> Option<(&'static str, fn(t: i64) -> Duration)> {
+        match s {
+            "d" | "days" => Some(("days", Duration::days)),
+            "h" | "hours" | "" => Some(("hours", Duration::hours)),
+            "m" | "minutes" => Some(("minutes", Duration::minutes)),
+            "s" | "seconds" => Some(("seconds", Duration::seconds)),
+            _ => None,
+        }
+    }
+    let guild = msg.guild_id.ok_or("Not in a guild")?;
+    let user = args.single::<UserId>()?;
+    let muted_hours = args.single::<u32>().map_err(|_| "invalid number")?;
+    let (unit_str, unit) = pick_unit(args.rest()).ok_or("invalid time unit")?;
+    let mut member = guild.member(ctx, user).await?;
+
+    let mute_role = crate::get!(ctx, Config)
+        .read()
+        .await
+        .get_mute_role()
+        .ok_or_else(|| "Mute role not set")?;
+    member.add_role(ctx, mute_role).await?;
+
+    let unmute_task = Box::new(Unmute {
+        when: Utc::now() + unit(muted_hours.into()),
+        guild_id: member.guild_id,
+        user_id: member.user.id,
+        role_id: mute_role,
+    });
+    if let Err(_) = crate::get!(ctx, TaskSender).send(unmute_task).await {
+        msg.channel_id
+            .say(&ctx, "Failed to set unmute timeout.")
+            .await?;
+    }
+    member
+        .user
+        .dm(&ctx, |m| {
+            m.content(format!("You've been muted for {} {}.", muted_hours, unit_str))
+        })
+        .await?;
+    msg.channel_id.say(&ctx, "muted.").await?;
+    Ok(())
+}
+
+#[command]
+#[description("Sets the mute role")]
+#[usage("@role")]
+#[min_args(1)]
+pub async fn set_mute_role(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let role = args.single::<RoleId>()?;
+    crate::get!(ctx, Config).write().await.set_mute_role(role)?;
+    msg.channel_id.say(ctx, "Mute role set").await?;
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+struct Unmute {
+    when: DateTime<Utc>,
+    guild_id: GuildId,
+    user_id: UserId,
+    role_id: RoleId,
+}
+
+#[serenity::async_trait]
+#[typetag::serde]
+impl Task for Unmute {
+    fn when(&self) -> DateTime<Utc> {
+        self.when
+    }
+
+    async fn call(&mut self, user_data: &mut TypeMap) -> Result<(), Box<dyn std::error::Error>> {
+        crate::log!("Unmuting {}", self.user_id);
+        let uid = self.user_id;
+        if let Some(http) = user_data.get::<Endpoint>() {
+            self.guild_id
+                .member(http, self.user_id)
+                .and_then(|mut m| async move { m.remove_role(http, self.role_id).await })
+                .await?;
+            crate::log!("Umuted {}", uid);
+        }
+        Ok(())
+    }
+
+    fn is_diferent(&self, other: &dyn Any) -> bool {
+        if let Some(unmute) = other.downcast_ref::<Self>() {
+            unmute.user_id != self.user_id
+        } else {
+            true
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }

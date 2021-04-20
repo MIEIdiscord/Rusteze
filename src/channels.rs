@@ -200,9 +200,7 @@ impl Year {
     }
 
     fn get_role<'a>(&self, role_name: &'a str) -> Option<&Course> {
-        self.courses
-            .values()
-            .find_map(|x| x.courses.get(role_name))
+        self.courses.values().find_map(|x| x.courses.get(role_name))
     }
 
     fn add_role(&mut self, role_name: &str, course: Course, semester: &str) {
