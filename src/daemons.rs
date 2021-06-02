@@ -1,137 +1,31 @@
 pub mod minecraft;
-use futures::{
-    future::FutureExt,
-    stream::{self, StreamExt},
-};
-use serenity::{prelude::RwLock, CacheAndHttp};
-use std::{
-    error::Error,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tokio::{
-    sync::{
-        mpsc::{self, Sender},
-        Notify,
-    },
-    time::timeout,
-};
 
-#[serenity::async_trait]
-pub trait Daemon {
-    async fn run(&self, http: &CacheAndHttp) -> Result<(), Box<dyn Error>>;
-    fn interval(&self) -> Duration;
-    fn name(&self) -> String;
-}
+use serenity::{prelude::TypeMapKey, CacheAndHttp};
+use std::{ops::{Deref, DerefMut}, sync::Arc };
+use tokio::sync::Mutex;
 
-type DynDaemon = dyn Daemon + Send + Sync;
+pub struct DaemonThread(daemons::DaemonThread<CacheAndHttp>);
 
-#[derive(Debug)]
-pub enum DaemonThreadMsg {
-    RunAll,
-    RunOne(usize),
-}
-
-pub struct DaemonThread {
-    notify: Arc<Notify>,
-    channel: Sender<DaemonThreadMsg>,
-    pub list: Vec<String>,
-}
-
-impl DaemonThread {
-    pub async fn run_one(
-        &mut self,
-        u: usize,
-    ) -> Result<(), mpsc::error::SendError<DaemonThreadMsg>> {
-        self.channel.send(DaemonThreadMsg::RunOne(u)).await?;
-        self.notify.notify_one();
-        Ok(())
-    }
-
-    pub async fn run_all(&mut self) -> Result<(), mpsc::error::SendError<DaemonThreadMsg>> {
-        self.channel.send(DaemonThreadMsg::RunAll).await?;
-        self.notify.notify_one();
-        Ok(())
+impl From<Arc<CacheAndHttp>> for DaemonThread {
+    fn from(data: Arc<CacheAndHttp>) -> Self {
+        Self(data.into())
     }
 }
 
-impl serenity::prelude::TypeMapKey for DaemonThread {
-    type Value = DaemonThread;
+impl TypeMapKey for DaemonThread {
+    type Value = Arc<Mutex<DaemonThread>>;
 }
 
-pub async fn start_daemon_thread(
-    daemons: Vec<Arc<RwLock<dyn Daemon + Send + Sync + 'static>>>,
-    http: Arc<CacheAndHttp>,
-) -> DaemonThread {
-    async fn run(d: &DynDaemon, ch_http: &CacheAndHttp) {
-        let _ = d
-            .run(ch_http)
-            .await
-            .map_err(|e| crate::log!("Deamon '{}' failed: {:?}", d.name(), e));
-    }
-    let list = stream::iter(&daemons)
-        .then(|d| async move { d.read().await.name().clone() })
-        .collect::<Vec<String>>()
-        .await;
-    let (sx, mut rx) = mpsc::channel(512);
-    let mut daemons = daemons
-        .into_iter()
-        .map(|d| (Instant::now(), d))
-        .collect::<Vec<_>>();
+impl Deref for DaemonThread {
+    type Target = daemons::DaemonThread<CacheAndHttp>;
 
-    let mut next_global_run = None;
-    let notify = Arc::new(Notify::new());
-    let wait_to_be = Arc::clone(&notify);
-    tokio::spawn(async move {
-        loop {
-            match rx.recv().now_or_never() {
-                Some(Some(DaemonThreadMsg::RunAll)) => {
-                    stream::iter(&daemons)
-                        .for_each(|(_, d)| {
-                            let http = &*http;
-                            async move {
-                                run(&*d.read().await, http).await;
-                            }
-                        })
-                        .await;
-                }
-                Some(Some(DaemonThreadMsg::RunOne(i))) => {
-                    if let Some((_, d)) = daemons.get(i) {
-                        run(&*d.read().await, &*http).await;
-                    }
-                }
-                None => {
-                    let mut smallest_next_instant = None;
-                    let now = Instant::now();
-                    for (next_run, daemon) in &mut daemons {
-                        if now >= *next_run {
-                            let d = daemon.read().await;
-                            run(&*d, &*http).await;
-                            *next_run = now + d.interval();
-                        }
-                        if smallest_next_instant.map(|s| *next_run < s).unwrap_or(true) {
-                            smallest_next_instant = Some(*next_run)
-                        }
-                    }
-                    match smallest_next_instant {
-                        Some(s) => next_global_run = Some(s),
-                        None => break crate::log!("Deamon thread terminating"),
-                    }
-                }
-                Some(None) => break crate::log!("Deamon thread terminating"),
-            }
-            let now = Instant::now();
-            match next_global_run {
-                Some(s) => {
-                    let _ = timeout(s - now, wait_to_be.notified()).await;
-                }
-                None => break crate::log!("Deamon thread terminating"),
-            };
-        }
-    });
-    DaemonThread {
-        notify,
-        channel: sx,
-        list,
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DaemonThread {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

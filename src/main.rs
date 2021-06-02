@@ -14,6 +14,7 @@ use serenity::{
 };
 use std::{fs, sync::Arc};
 
+
 #[tokio::main]
 async fn main() {
     let token = match fs::read_to_string("auth") {
@@ -56,12 +57,12 @@ async fn main() {
     let mut client = client_builder.await.expect("failed to start client");
     if let Ok(_) = util::minecraft_server_get(&["list"]) {
         log!("Initializing minecraft daemon");
-        let mc = Arc::new(RwLock::new(Minecraft::load().unwrap_or_default()));
+        let mc = Arc::new(Mutex::new(Minecraft::load().unwrap_or_default()));
         let mut data = client.data.write().await;
         data.insert::<Minecraft>(Arc::clone(&mc));
-        data.insert::<daemons::DaemonThread>(
-            daemons::start_daemon_thread(vec![mc], Arc::clone(&client.cache_and_http)).await,
-        );
+        let mut dt = DaemonThread::from(client.cache_and_http.clone());
+        dt.add_shared(mc).await;
+        data.insert::<DaemonThread>(Arc::new(Mutex::new(dt)));
     }
     {
         let mut tasks_data = TypeMap::new();

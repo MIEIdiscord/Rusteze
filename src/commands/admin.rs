@@ -12,11 +12,11 @@ use crate::{
 };
 use channels::*;
 use chrono::{DateTime, Duration, Utc};
-use daemons::*;
 use futures::{
     future::{self, TryFutureExt},
     stream::StreamExt,
 };
+use self::daemons::*;
 use greeting_channels::*;
 use log_channel::*;
 use minecraft::*;

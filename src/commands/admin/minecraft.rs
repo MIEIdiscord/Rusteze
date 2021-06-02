@@ -1,4 +1,4 @@
-use crate::util::minecraft_server_get;
+use crate::{daemons::minecraft, util::minecraft_server_get };
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -40,9 +40,9 @@ async fn pair(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let user = args.single::<UserId>()?;
     let share_map = ctx.data.write().await;
     share_map
-        .get::<crate::daemons::minecraft::Minecraft>()
+        .get::<minecraft::Minecraft>()
         .unwrap()
-        .write()
+        .lock()
         .await
         .pair(nick, user)?;
     msg.channel_id.say(&ctx, "User paired").await?;
@@ -57,9 +57,9 @@ async fn pair_guild_set(ctx: &Context, msg: &Message) -> CommandResult {
     match msg.guild_id {
         Some(gid) => {
             share_map
-                .get::<crate::daemons::minecraft::Minecraft>()
+                .get::<minecraft::Minecraft>()
                 .unwrap()
-                .write()
+                .lock()
                 .await
                 .set_guild_id(gid)?;
             msg.channel_id.say(&ctx, "Guild id set").await?

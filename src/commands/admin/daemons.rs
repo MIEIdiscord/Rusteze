@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -22,11 +23,14 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
         .say(
             &ctx,
             format!(
-                "{:?}",
+                "```\n{}\n```",
                 share_map
-                    .get::<crate::daemons::DaemonThread>()
+                    .get::<crate::DaemonThread>()
                     .unwrap()
-                    .list
+                    .lock()
+                    .await
+                    .daemon_names()
+                    .format_with("\n", |(i, n), f| f(&format_args!("{}: {}", i, n)))
             ),
         )
         .await?;
@@ -38,13 +42,17 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
 #[usage("[number]")]
 async fn daemon_now(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut share_map = ctx.data.write().await;
-    let daemon_t = share_map.get_mut::<crate::daemons::DaemonThread>().unwrap();
-    match args.single::<usize>() {
-        Ok(u) if u < daemon_t.list.len() => daemon_t.run_one(u).await?,
-        Ok(_) => return Err("Index out of bounds".into()),
-        Err(ArgError::Eos) => daemon_t.run_all().await?,
-        Err(_) => return Err("Invalid index".into()),
+    let daemon_t = share_map.get_mut::<crate::DaemonThread>().unwrap();
+    let mut daemon_t = daemon_t.lock().await;
+    let e = match args.single::<usize>() {
+        Ok(u) => daemon_t.run_one(u).await,
+        Err(ArgError::Eos) => daemon_t.run_all().await,
+        Err(e) => return Err(format!("Invalid index: {}", e).into()),
+    };
+    if let Err(e) = e {
+        Err(format!("Could not run daemon with id {}", e).into())
+    } else {
+        msg.channel_id.say(&ctx, "Done").await?;
+        Ok(())
     }
-    msg.channel_id.say(&ctx, "Done").await?;
-    Ok(())
 }
