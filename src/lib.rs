@@ -25,7 +25,7 @@ use serenity::{
     utils::Colour,
 };
 use std::{collections::HashSet, sync::Arc};
-pub use self::daemons::DaemonThread;
+pub use self::daemons::DaemonManager;
 
 pub struct UpdateNotify;
 

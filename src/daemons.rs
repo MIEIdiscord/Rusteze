@@ -4,27 +4,33 @@ use serenity::{prelude::TypeMapKey, CacheAndHttp};
 use std::{ops::{Deref, DerefMut}, sync::Arc };
 use tokio::sync::Mutex;
 
-pub struct DaemonThread(daemons::DaemonThread<CacheAndHttp>);
+pub struct DaemonManager(daemons::DaemonManager<CacheAndHttp>);
 
-impl From<Arc<CacheAndHttp>> for DaemonThread {
+impl DaemonManager {
+    pub fn new(data: Arc<CacheAndHttp>) -> Self {
+        data.into()
+    }
+}
+
+impl From<Arc<CacheAndHttp>> for DaemonManager {
     fn from(data: Arc<CacheAndHttp>) -> Self {
         Self(data.into())
     }
 }
 
-impl TypeMapKey for DaemonThread {
-    type Value = Arc<Mutex<DaemonThread>>;
+impl TypeMapKey for DaemonManager {
+    type Value = Arc<Mutex<DaemonManager>>;
 }
 
-impl Deref for DaemonThread {
-    type Target = daemons::DaemonThread<CacheAndHttp>;
+impl Deref for DaemonManager {
+    type Target = daemons::DaemonManager<CacheAndHttp>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for DaemonThread {
+impl DerefMut for DaemonManager {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

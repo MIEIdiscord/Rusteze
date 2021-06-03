@@ -60,9 +60,9 @@ async fn main() {
         let mc = Arc::new(Mutex::new(Minecraft::load().unwrap_or_default()));
         let mut data = client.data.write().await;
         data.insert::<Minecraft>(Arc::clone(&mc));
-        let mut dt = DaemonThread::from(client.cache_and_http.clone());
+        let mut dt = DaemonManager::new(client.cache_and_http.clone());
         dt.add_shared(mc).await;
-        data.insert::<DaemonThread>(Arc::new(Mutex::new(dt)));
+        data.insert::<DaemonManager>(Arc::new(Mutex::new(dt)));
     }
     {
         let mut tasks_data = TypeMap::new();

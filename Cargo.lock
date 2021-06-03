@@ -166,8 +166,8 @@ dependencies = [
 
 [[package]]
 name = "daemons"
-version = "0.3.1"
-source = "git+https://github.com/mendess/daemons#daa2e57a0fff0f8177593c63bf4e6bd7a1cbb735"
+version = "0.5.2"
+source = "git+https://github.com/mendess/daemons#4a17b4209a1fa9bfbe580bde0efe55bfcefcc577"
 dependencies = [
  "async-trait",
  "futures",

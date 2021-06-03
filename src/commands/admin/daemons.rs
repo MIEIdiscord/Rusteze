@@ -25,7 +25,7 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
             format!(
                 "```\n{}\n```",
                 share_map
-                    .get::<crate::DaemonThread>()
+                    .get::<crate::DaemonManager>()
                     .unwrap()
                     .lock()
                     .await
@@ -42,11 +42,14 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
 #[usage("[number]")]
 async fn daemon_now(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut share_map = ctx.data.write().await;
-    let daemon_t = share_map.get_mut::<crate::DaemonThread>().unwrap();
+    let daemon_t = share_map.get_mut::<crate::DaemonManager>().unwrap();
     let mut daemon_t = daemon_t.lock().await;
     let e = match args.single::<usize>() {
         Ok(u) => daemon_t.run_one(u).await,
-        Err(ArgError::Eos) => daemon_t.run_all().await,
+        Err(ArgError::Eos) => {
+            daemon_t.run_all().await;
+            Ok(())
+        }
         Err(e) => return Err(format!("Invalid index: {}", e).into()),
     };
     if let Err(e) = e {
