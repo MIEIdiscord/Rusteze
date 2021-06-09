@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{config::Config, get};
 use itertools::Itertools;
 use serenity::{
     framework::standard::{
@@ -20,9 +20,7 @@ pub struct Channels;
 #[min_args(1)]
 pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
-    let share_map = ctx.data.read().await;
-    let mut config = share_map.get::<Config>().unwrap().write().await;
-    config.add_allowed_channel(channel_id)?;
+    get!(ctx, Config, write).add_allowed_channel(channel_id)?;
     msg.channel_id.say(&ctx, "Channel added").await?;
     Ok(())
 }
@@ -51,9 +49,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
 #[min_args(1)]
 pub async fn del(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>()?;
-    let share_map = ctx.data.read().await;
-    let mut config = share_map.get::<Config>().unwrap().write().await;
-    config.remove_allowed_channel(channel_id)?;
+    get!(ctx, Config, write).remove_allowed_channel(channel_id)?;
     msg.channel_id.say(&ctx, "Channel removed").await?;
     Ok(())
 }

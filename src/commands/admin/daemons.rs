@@ -1,3 +1,4 @@
+use crate::get;
 use itertools::Itertools;
 use serenity::{
     framework::standard::{
@@ -24,11 +25,7 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
             &ctx,
             format!(
                 "```\n{}\n```",
-                share_map
-                    .get::<crate::DaemonManager>()
-                    .unwrap()
-                    .lock()
-                    .await
+                get!(> share_map, crate::DaemonManager, lock)
                     .daemon_names()
                     .format_with("\n", |(i, n), f| f(&format_args!("{}: {}", i, n)))
             ),
@@ -41,9 +38,8 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
 #[description("Runs all or one daemon now")]
 #[usage("[number]")]
 async fn daemon_now(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let mut share_map = ctx.data.write().await;
-    let daemon_t = share_map.get_mut::<crate::DaemonManager>().unwrap();
-    let mut daemon_t = daemon_t.lock().await;
+    let share_map = ctx.data.read().await;
+    let mut daemon_t = get!(> share_map,crate::DaemonManager, lock);
     let e = match args.single::<usize>() {
         Ok(u) => daemon_t.run_one(u).await,
         Err(ArgError::Eos) => {

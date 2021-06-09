@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -26,16 +26,7 @@ pub async fn join(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(role) => role,
         None => return Err("No such role".into()),
     };
-    if ctx
-        .data
-        .read()
-        .await
-        .get::<Config>()
-        .expect("Config not loaded")
-        .read()
-        .await
-        .user_group_exists(role)
-    {
+    if get!(ctx, Config, read).user_group_exists(role) {
         let mut member = msg.member(&ctx).await?;
         if !member.roles.contains(&role) {
             member.add_role(&ctx, role).await?;
@@ -60,16 +51,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(role) => role,
         None => return Err("No such role".into()),
     };
-    if ctx
-        .data
-        .read()
-        .await
-        .get::<Config>()
-        .expect("Config not loaded")
-        .read()
-        .await
-        .user_group_exists(role)
-    {
+    if get!(ctx, Config, read).user_group_exists(role) {
         let mut member = msg.member(&ctx).await?;
         if member.roles.contains(&role) {
             member.remove_role(&ctx, role).await?;
@@ -89,7 +71,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[description("List user groups")]
 pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
     let map = ctx.data.read().await;
-    let config = map.get::<Config>().expect("Config not loaded").read().await;
+    let config = get!(> map, Config, read);
     let guild = msg
         .guild_id
         .ok_or("Not in a server")?

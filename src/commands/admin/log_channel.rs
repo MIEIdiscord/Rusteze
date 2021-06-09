@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -17,16 +17,7 @@ struct LogChannel;
 #[description("Check the current log channel")]
 #[usage("")]
 pub async fn log_channel(ctx: &Context, msg: &Message) -> CommandResult {
-    match ctx
-        .data
-        .read()
-        .await
-        .get::<Config>()
-        .unwrap()
-        .read()
-        .await
-        .log_channel()
-    {
+    match get!(ctx, Config, read).log_channel() {
         Some(ch) => {
             msg.channel_id
                 .say(&ctx, format!("Log channel: {}", ch.mention()))
@@ -42,9 +33,7 @@ pub async fn log_channel(ctx: &Context, msg: &Message) -> CommandResult {
 #[usage("#channel_mention")]
 pub async fn log_channel_set(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let channel_id = args.single::<ChannelId>().ok();
-    let share_map = ctx.data.read().await;
-    let mut config = share_map.get::<Config>().unwrap().write().await;
-    config.set_log_channel(channel_id)?;
+    get!(ctx, Config, write).set_log_channel(channel_id)?;
     msg.channel_id
         .say(
             &ctx,
