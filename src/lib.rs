@@ -7,6 +7,7 @@ pub mod daemons;
 pub mod delayed_tasks;
 pub mod util;
 
+pub use self::daemons::DaemonManager;
 use crate::config::Config;
 use serenity::{
     framework::standard::{
@@ -51,18 +52,17 @@ impl EventHandler for Handler {
         ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online)
             .await;
         crate::log!("Up and running");
-        if let Some(id) = ctx.data.read().await.get::<UpdateNotify>() {
-            ChannelId::from(**id)
+        if let Some(id) = ctx.data.write().await.remove::<UpdateNotify>() {
+            ChannelId::from(*id)
                 .send_message(&ctx, |m| m.content("Rebooted successfully!"))
                 .await
                 .expect("Couldn't send update notification");
         }
-        ctx.data.write().await.remove::<UpdateNotify>();
     }
 
     async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
         let share_map = ctx.data.read().await;
-        let config = share_map.get::<Config>().unwrap().read().await;
+        let config = get!(> share_map, Config, read);
         if let (Some(ch), Some(greet_message)) =
             (config.greet_channel(), config.greet_channel_message())
         {
@@ -94,7 +94,7 @@ impl EventHandler for Handler {
         member_data: Option<Member>,
     ) {
         let share_map = ctx.data.read().await;
-        let config = share_map.get::<Config>().unwrap().read().await;
+        let config = get!(> share_map, Config, read);
         if let Some(ch) = config.log_channel() {
             let nick = member_data
                 .as_ref()
@@ -203,14 +203,7 @@ pub async fn dispatch_error_hook(ctx: &Context, msg: &Message, error: DispatchEr
 }
 
 pub async fn valid_channel(ctx: &Context, msg: &Message) -> bool {
-    ctx.data
-        .read()
-        .await
-        .get::<Config>()
-        .unwrap()
-        .read()
-        .await
-        .channel_is_allowed(msg.channel_id)
+    get!(ctx, Config, read).channel_is_allowed(msg.channel_id)
 }
 
 pub async fn is_admin(ctx: &Context, msg: &Message) -> bool {

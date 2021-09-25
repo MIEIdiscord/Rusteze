@@ -1,4 +1,4 @@
-use crate::util::minecraft_server_get;
+use crate::{daemons::minecraft, get, util::minecraft_server_get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -38,13 +38,7 @@ async fn server_do(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 async fn pair(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let nick = args.single::<String>()?;
     let user = args.single::<UserId>()?;
-    let share_map = ctx.data.write().await;
-    share_map
-        .get::<crate::daemons::minecraft::Minecraft>()
-        .unwrap()
-        .write()
-        .await
-        .pair(nick, user)?;
+    get!(ctx, minecraft::Minecraft, lock).pair(nick, user)?;
     msg.channel_id.say(&ctx, "User paired").await?;
     Ok(())
 }
@@ -53,15 +47,9 @@ async fn pair(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 #[description("Set's this guild as the one to use for the minecraft daemon")]
 #[usage("")]
 async fn pair_guild_set(ctx: &Context, msg: &Message) -> CommandResult {
-    let share_map = ctx.data.write().await;
     match msg.guild_id {
         Some(gid) => {
-            share_map
-                .get::<crate::daemons::minecraft::Minecraft>()
-                .unwrap()
-                .write()
-                .await
-                .set_guild_id(gid)?;
+            get!(ctx, minecraft::Minecraft, lock).set_guild_id(gid)?;
             msg.channel_id.say(&ctx, "Guild id set").await?
         }
         None => msg.channel_id.say(&ctx, "Couldn't find guild id").await?,

@@ -22,7 +22,7 @@ erased-serde = "0.3"
 typetag = "0.1"
 toml = "0.5"
 serde_with = "1"
-
+daemons = { git = "https://github.com/mendess/daemons", version = "0.7" }
 
 [profile.release]
 codegen-units = 1

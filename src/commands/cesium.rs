@@ -1,3 +1,4 @@
+use crate::get;
 use futures::future::TryFutureExt;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -194,11 +195,9 @@ impl TypeMapKey for ChannelMapping {
 #[min_args(1)]
 pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.ok_or("Message with no guild id")?;
-    let data_lock = ctx.data.write().await;
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().await;
     args.iter::<UserId>().try_for_each(|x| x.map(|_| ()))?;
     args.restore();
-    channels
+    get!(ctx, ChannelMapping, write)
         .create_channel(guild_id, &ctx, args.iter::<UserId>().map(Result::unwrap))
         .await?;
     msg.channel_id.say(&ctx, "Room created").await?;
@@ -209,9 +208,9 @@ pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult 
 #[description("Removes a new private room")]
 #[usage("")]
 pub async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
-    let data_lock = ctx.data.write().await;
-    let mut channels = data_lock.get::<ChannelMapping>().unwrap().write().await;
-    channels.delete_channel(msg.channel_id, &ctx).await
+    get!(ctx, ChannelMapping, write)
+        .delete_channel(msg.channel_id, &ctx)
+        .await
 }
 
 #[command]
@@ -220,7 +219,7 @@ pub async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
 #[min_args(1)]
 pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let data_lock = ctx.data.read().await;
-    let channels = data_lock.get::<ChannelMapping>().unwrap().read().await;
+    let channels = get!(> data_lock, ChannelMapping, read);
     let user = args.single::<UserId>()?;
     let text = match args.single::<ChannelId>() {
         Ok(t) => t,

@@ -9,14 +9,15 @@ use crate::{
     config::Config,
     delayed_tasks::{Task, TaskSender},
     util::Endpoint,
+    get
 };
 use channels::*;
 use chrono::{DateTime, Duration, Utc};
-use daemons::*;
 use futures::{
     future::{self, TryFutureExt},
     stream::StreamExt,
 };
+use self::daemons::*;
 use greeting_channels::*;
 use log_channel::*;
 use minecraft::*;
@@ -275,9 +276,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     let (unit_str, unit) = pick_unit(args.rest()).ok_or("invalid time unit")?;
     let mut member = guild.member(ctx, user).await?;
 
-    let mute_role = crate::get!(ctx, Config)
-        .read()
-        .await
+    let mute_role = get!(ctx, Config, read)
         .get_mute_role()
         .ok_or_else(|| "Mute role not set")?;
     member.add_role(ctx, mute_role).await?;
@@ -288,7 +287,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         user_id: member.user.id,
         role_id: mute_role,
     });
-    if let Err(_) = crate::get!(ctx, TaskSender).send(unmute_task).await {
+    if let Err(_) = get!(ctx, TaskSender).send(unmute_task).await {
         msg.channel_id
             .say(&ctx, "Failed to set unmute timeout.")
             .await?;
@@ -309,7 +308,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 #[min_args(1)]
 pub async fn set_mute_role(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let role = args.single::<RoleId>()?;
-    crate::get!(ctx, Config).write().await.set_mute_role(role)?;
+    get!(ctx, Config, write).set_mute_role(role)?;
     msg.channel_id.say(ctx, "Mute role set").await?;
     Ok(())
 }

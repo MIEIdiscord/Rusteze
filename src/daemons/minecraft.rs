@@ -1,9 +1,9 @@
-use super::Daemon;
 use crate::util::minecraft_server_get;
+use daemons::{ControlFlow, Daemon};
 use serde::{Deserialize, Serialize};
 use serenity::{
     model::id::{GuildId, UserId},
-    prelude::{RwLock, TypeMapKey},
+    prelude::{Mutex, TypeMapKey},
     CacheAndHttp,
 };
 use std::{
@@ -44,7 +44,7 @@ impl Minecraft {
 }
 
 impl TypeMapKey for Minecraft {
-    type Value = Arc<RwLock<Minecraft>>;
+    type Value = Arc<Mutex<Minecraft>>;
 }
 
 #[derive(Clone, Copy, PartialOrd, PartialEq, Eq, Ord)]
@@ -93,31 +93,67 @@ impl Display for Color {
 
 #[serenity::async_trait]
 impl Daemon for Minecraft {
-    fn name(&self) -> String {
+    type Data = CacheAndHttp;
+    async fn name(&self) -> String {
         String::from("Minecraft colours")
     }
 
-    fn interval(&self) -> Duration {
+    async fn interval(&self) -> Duration {
         Duration::from_secs(60 * 30)
     }
 
-    async fn run(&self, cache_http: &CacheAndHttp) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(&mut self, cache_http: &Self::Data) -> ControlFlow {
         let guild_id = match self.guild_id {
             Some(g) => g,
-            None => return Ok(()),
+            None => return ControlFlow::CONTINUE,
         };
-        let output = minecraft_server_get(&["list"])?;
+        let output = match minecraft_server_get(&["list"]) {
+            Ok(o) => o,
+            Err(e) => {
+                crate::log!("Failed to get from the minecraft server: {}", e);
+                return ControlFlow::CONTINUE;
+            }
+        };
         if output.status.success() {
-            let online_list = std::str::from_utf8(&output.stdout)?;
-            let index = online_list
-                .find(':')
-                .ok_or_else(|| format!("Invalid online list: {}", online_list))?;
+            let online_list = match std::str::from_utf8(&output.stdout) {
+                Ok(o) => o,
+                Err(e) => {
+                    crate::log!(
+                        "Failed to parse to string minecraft_server_get output: {}",
+                        e
+                    );
+                    return ControlFlow::CONTINUE;
+                }
+            };
+            let index = match online_list.find(':') {
+                Some(i) => i,
+                None => {
+                    crate::log!("Invalid online list: {}", online_list);
+                    return ControlFlow::CONTINUE;
+                }
+            };
             let (_, list) = online_list.split_at(index + ':'.len_utf8());
             for name in list.split(',').map(str::trim).filter(|x| !x.is_empty()) {
                 match self.names.get(name) {
                     Some(uuid) => {
-                        let member = guild_id.member(cache_http, uuid).await?;
-                        let guild = guild_id.to_partial_guild(&cache_http.http).await?;
+                        let member = match guild_id.member(cache_http, uuid).await {
+                            Ok(m) => m,
+                            Err(e) => {
+                                crate::log!("Can't find member {}: {}", uuid, e);
+                                return ControlFlow::CONTINUE;
+                            }
+                        };
+                        let guild = match guild_id.to_partial_guild(&cache_http.http).await {
+                            Ok(g) => g,
+                            Err(e) => {
+                                crate::log!(
+                                    "Can't find partial guild from id {}: {}",
+                                    guild_id,
+                                    e
+                                );
+                                return ControlFlow::CONTINUE;
+                            }
+                        };
                         let c = member
                             .roles
                             .iter()
@@ -125,26 +161,28 @@ impl Daemon for Minecraft {
                             .map(|r| r.colour.tuple())
                             .filter_map(Color::from_rgb)
                             .min();
-                        match c {
+                        let status = match c {
                             Some(c) => {
                                 Fork::new("./server_do.sh")
                                     .args(&[format!("team join {} {}", c, name)])
-                                    .spawn()?
-                                    .wait()?;
+                                    .spawn()
+                                    .and_then(|mut c| c.wait())
                             }
                             None => {
                                 Fork::new("./server_do.sh")
                                     .args(&[format!("team leave {}", name)])
-                                    .spawn()?
-                                    .wait()?;
+                                    .spawn()
+                                    .and_then(|mut c| c.wait())
                             }
+                        };
+                        if let Err(status) = status {
+                            crate::log!("Failed to execute server_do: {}", status);
                         }
                     }
                     None => crate::log!("[Minecraft daemon]: '{}' not stored", name),
                 }
             }
         }
-
-        Ok(())
+        ControlFlow::CONTINUE
     }
 }

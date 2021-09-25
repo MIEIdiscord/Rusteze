@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
@@ -26,9 +26,7 @@ pub async fn greet_channel_set(ctx: &Context, msg: &Message, mut args: Args) -> 
             Some(m.to_string())
         }
     });
-    let share_map = ctx.data.read().await;
-    let mut config = share_map.get::<Config>().unwrap().write().await;
-    config.set_greet_channel(channel_id, greeting)?;
+    get!(ctx, Config, write).set_greet_channel(channel_id, greeting)?;
     msg.channel_id.say(&ctx, "Greet channel set").await?;
     Ok(())
 }
@@ -37,9 +35,7 @@ pub async fn greet_channel_set(ctx: &Context, msg: &Message, mut args: Args) -> 
 #[description("Disable the greeting channel")]
 #[usage("")]
 pub async fn greet_channel_clear(ctx: &Context, msg: &Message) -> CommandResult {
-    let share_map = ctx.data.read().await;
-    let mut config = share_map.get::<Config>().unwrap().write().await;
-    config.remove_greet_channel()?;
+    get!(ctx, Config, write).remove_greet_channel()?;
     msg.channel_id.say(&ctx, "Greet channel cleared").await?;
     Ok(())
 }
@@ -48,16 +44,7 @@ pub async fn greet_channel_clear(ctx: &Context, msg: &Message) -> CommandResult 
 #[description("Check the current greet channel")]
 #[usage("")]
 pub async fn greet_channel(ctx: &Context, msg: &Message) -> CommandResult {
-    match ctx
-        .data
-        .read()
-        .await
-        .get::<Config>()
-        .unwrap()
-        .read()
-        .await
-        .greet_channel()
-    {
+    match get!(ctx, Config, read).greet_channel() {
         Some(ch) => {
             msg.channel_id
                 .say(&ctx, format!("Greet channel: {}", ch.mention()))

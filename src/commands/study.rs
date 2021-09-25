@@ -1,4 +1,4 @@
-use crate::channels::MiEI;
+use crate::{get, channels::MiEI };
 use futures::{
     future,
     stream::{self, StreamExt},
@@ -32,7 +32,7 @@ struct Study;
 #[example("2ano1sem")]
 pub async fn study(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read().await;
-    let roles = trash.get::<MiEI>().unwrap().read().await;
+    let roles = get!(> trash, MiEI, read);
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -66,7 +66,7 @@ pub async fn study(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[example("2ano1sem")]
 pub async fn unstudy(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read().await;
-    let roles = trash.get::<MiEI>().unwrap().read().await;
+    let roles = get!(> trash, MiEI, read);
     let (ids, names) = parse_study_args(
         args.rest(),
         &*roles,
@@ -182,8 +182,8 @@ struct Courses;
 #[min_args(3)]
 #[required_permissions(ADMINISTRATOR)]
 pub async fn mk(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.write().await;
-    let mut roles = trash.get::<MiEI>().unwrap().write().await;
+    let trash = ctx.data.read().await;
+    let mut roles = get!(> trash, MiEI, write);
     let mut args = args.raw();
     let year = args.next();
     let semester = args.next();
@@ -215,8 +215,8 @@ pub async fn mk(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[usage("[CADEIRA, ...]")]
 #[required_permissions(ADMINISTRATOR)]
 pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let trash = ctx.data.write().await;
-    let mut roles = trash.get::<MiEI>().unwrap().write().await;
+    let trash = ctx.data.read().await;
+    let mut roles = get!(>trash, MiEI, write);
     if let Some(guild) = msg.guild_id {
         let mut rm_roles = Vec::new();
         for course in args.raw() {
@@ -245,7 +245,7 @@ pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[usage("")]
 pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
     let trash = ctx.data.read().await;
-    let roles = trash.get::<MiEI>().unwrap().read().await;
+    let roles = get!(> trash, MiEI, read);
 
     msg.channel_id
         .send_message(&ctx.http, |m| {
