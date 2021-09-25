@@ -61,7 +61,7 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<Minecraft>(Arc::clone(&mc));
         let mut dt = DaemonManager::new(client.cache_and_http.clone());
-        dt.add_shared(mc).await;
+        dt.add_daemon(mc).await;
         data.insert::<DaemonManager>(Arc::new(Mutex::new(dt)));
     }
     {

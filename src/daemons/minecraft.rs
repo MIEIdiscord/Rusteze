@@ -105,13 +105,13 @@ impl Daemon for Minecraft {
     async fn run(&mut self, cache_http: &Self::Data) -> ControlFlow {
         let guild_id = match self.guild_id {
             Some(g) => g,
-            None => return ControlFlow::Continue,
+            None => return ControlFlow::CONTINUE,
         };
         let output = match minecraft_server_get(&["list"]) {
             Ok(o) => o,
             Err(e) => {
                 crate::log!("Failed to get from the minecraft server: {}", e);
-                return ControlFlow::Continue;
+                return ControlFlow::CONTINUE;
             }
         };
         if output.status.success() {
@@ -122,14 +122,14 @@ impl Daemon for Minecraft {
                         "Failed to parse to string minecraft_server_get output: {}",
                         e
                     );
-                    return ControlFlow::Continue;
+                    return ControlFlow::CONTINUE;
                 }
             };
             let index = match online_list.find(':') {
                 Some(i) => i,
                 None => {
                     crate::log!("Invalid online list: {}", online_list);
-                    return ControlFlow::Continue;
+                    return ControlFlow::CONTINUE;
                 }
             };
             let (_, list) = online_list.split_at(index + ':'.len_utf8());
@@ -140,7 +140,7 @@ impl Daemon for Minecraft {
                             Ok(m) => m,
                             Err(e) => {
                                 crate::log!("Can't find member {}: {}", uuid, e);
-                                return ControlFlow::Continue;
+                                return ControlFlow::CONTINUE;
                             }
                         };
                         let guild = match guild_id.to_partial_guild(&cache_http.http).await {
@@ -151,7 +151,7 @@ impl Daemon for Minecraft {
                                     guild_id,
                                     e
                                 );
-                                return ControlFlow::Continue;
+                                return ControlFlow::CONTINUE;
                             }
                         };
                         let c = member
@@ -183,6 +183,6 @@ impl Daemon for Minecraft {
                 }
             }
         }
-        ControlFlow::Continue
+        ControlFlow::CONTINUE
     }
 }

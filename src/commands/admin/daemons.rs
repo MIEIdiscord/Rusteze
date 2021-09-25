@@ -27,7 +27,7 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
                 "```\n{}\n```",
                 get!(> share_map, crate::DaemonManager, lock)
                     .daemon_names()
-                    .format_with("\n", |(i, n), f| f(&format_args!("{}: {}", i, n)))
+                    .format_with("\n", |(i, n), f| f(&format_args!("{}: {}", i, n.name())))
             ),
         )
         .await?;
