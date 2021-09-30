@@ -2,7 +2,10 @@ use crate::util::SendSyncError;
 use serde::{Deserialize, Serialize};
 use serenity::{
     model::{
-        channel::{ChannelType, PermissionOverwrite, PermissionOverwriteType::Role},
+        channel::{
+            Channel as SerenityChannel, ChannelType, PermissionOverwrite,
+            PermissionOverwriteType::Role,
+        },
         id::{ChannelId, GuildId, RoleId},
         permissions::Permissions,
     },
@@ -58,6 +61,17 @@ impl MiEI {
             .and_then(|y| y.roles_by_semester(semester))
     }
 
+    fn role_color(year: &str) -> u64 {
+        match year {
+            "1" => 0x843da4,
+            "2" => 0x2ecc71,
+            "3" => 0x498db,
+            "4" => 0xf1c40f,
+            "5" => 0x1e1e1e,
+            _ => 0xffffff,
+        }
+    }
+
     pub async fn create_role<'a>(
         &mut self,
         ctx: &Context,
@@ -72,7 +86,10 @@ impl MiEI {
         } else {
             let role = guild
                 .create_role(&ctx.http, |z| {
-                    z.hoist(false).mentionable(true).name(&upper_course)
+                    z.hoist(false)
+                        .mentionable(true)
+                        .name(&upper_course)
+                        .colour(MiEI::role_color(year))
                 })
                 .await
                 .unwrap();
@@ -150,6 +167,65 @@ impl MiEI {
         }
     }
 
+    pub async fn move_course<'a>(
+        &mut self,
+        course: &'a str,
+        new_year: &str,
+        new_semester: &str,
+        new_name: Option<&'a str>,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> serenity::Result<&'a str> {
+        let upper_new_name = new_name.map(|n| n.to_uppercase());
+        if upper_new_name
+            .as_ref()
+            .filter(|r| self.role_exists(r))
+            .is_some()
+        {
+            Err(serenity::Error::Other("Role already exists"))
+        } else if let Some(x) = self.courses.values_mut().find_map(|x| x.pop_role(course)) {
+            guild
+                .edit_role(&ctx.http, x.role, |r| r.colour(MiEI::role_color(new_year)))
+                .await?;
+            if let Some(n) = upper_new_name {
+                x.rename_course(&n, &ctx, guild).await?;
+                self.add_role(&n, x, new_semester, new_year);
+            } else {
+                self.add_role(&course.to_uppercase(), x, new_semester, new_year);
+            }
+            self.write_courses()?;
+            Ok(new_name.unwrap_or(course))
+        } else {
+            Err(serenity::Error::Other("No such role"))
+        }
+    }
+
+    pub async fn rename_course<'a>(
+        &mut self,
+        course: &'a str,
+        new_name: &'a str,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> serenity::Result<&'a str> {
+        if let Some((year, semester)) = self.get_year_semester_names(course) {
+            self.move_course(course, &year, &semester, Some(new_name), ctx, guild)
+                .await
+        } else {
+            Err(serenity::Error::Other("No such role"))
+        }
+    }
+
+    fn get_year_semester_names(&self, role_name: &str) -> Option<(String, String)> {
+        let upper_role_name = role_name.to_uppercase();
+        self.courses.iter().find_map(|(key, x)| {
+            if let Some(sem) = x.get_semester_name(&upper_role_name) {
+                Some((key.clone(), sem))
+            } else {
+                None
+            }
+        })
+    }
+
     fn role_exists(&self, role_name: &str) -> bool {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
@@ -203,6 +279,16 @@ impl Year {
         self.courses.values().find_map(|x| x.courses.get(role_name))
     }
 
+    fn get_semester_name(&self, role_name: &str) -> Option<String> {
+        self.courses.iter().find_map(|(key, x)| {
+            if x.courses.get(role_name).is_some() {
+                Some(key.clone())
+            } else {
+                None
+            }
+        })
+    }
+
     fn add_role(&mut self, role_name: &str, course: Course, semester: &str) {
         self.courses
             .entry(semester.to_string())
@@ -238,6 +324,34 @@ impl Course {
             channel.delete(&ctx.http).await?;
         }
         guild.delete_role(&ctx.http, self.role).await?;
+        Ok(())
+    }
+
+    async fn rename_course(
+        &self,
+        new_name: &str,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> serenity::Result<()> {
+        for channel in &self.channels {
+            match channel.to_channel(&ctx.http).await? {
+                SerenityChannel::Guild(mut channel) => {
+                    let prefix_index = channel.name.find("-").unwrap_or(channel.name.len());
+                    let prefix = &channel.name[..prefix_index].to_string();
+                    channel
+                        .edit(&ctx.http, |c| c.name(format!("{}-{}", prefix, new_name)))
+                        .await?;
+                }
+                SerenityChannel::Category(mut channel) => {
+                    channel.edit(&ctx.http, |c| c.name(new_name)).await?;
+                }
+                _ => {}
+            }
+        }
+        guild
+            .edit_role(&ctx.http, self.role, |r| r.name(new_name))
+            .await?;
+
         Ok(())
     }
 }

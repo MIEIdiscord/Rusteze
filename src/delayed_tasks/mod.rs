@@ -80,7 +80,7 @@ impl DelayedTasks {
                 Some(Some(task)) => {
                     self.tasks.retain(|x| x.is_diferent(task.as_any()));
                     self.tasks.push(task)
-                },
+                }
                 None => break true,
                 Some(None) => break false,
             }
