@@ -1,4 +1,4 @@
-use crate::{channels::MiEI, get};
+use crate::{channels::MiEI, get, log};
 use futures::{
     future,
     stream::{self, StreamExt},
@@ -254,14 +254,21 @@ pub async fn mv(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let new_semester = args.next();
     if let (Some(c), Some(y), Some(s), Some(g)) = (course, new_year, new_semester, msg.guild_id) {
         let new_name = args.next().filter(|&n| !n.eq_ignore_ascii_case(c));
-        if let Ok(n) = roles.move_course(c, y, s, new_name, ctx, g).await {
-            msg.channel_id
-                .say(&ctx.http, format!("Cadeira movida: {} -> {}", c, n))
-                .await?;
-        } else {
-            msg.channel_id
-                .say(&ctx.http, "Não foram movidas cadeiras")
-                .await?;
+        match roles.move_course(c, y, s, new_name, ctx, g).await {
+            Ok(nc) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!("Cadeira movida: {} -> {}ano{}semestre: {}", c, y, s, nc),
+                    )
+                    .await?;
+            }
+            Err(e) => {
+                log!("{}", e);
+                msg.channel_id
+                    .say(&ctx.http, format!("Não foram movidas cadeiras.\n{}", e))
+                    .await?;
+            }
         }
     }
     Ok(())
@@ -279,14 +286,18 @@ pub async fn rename(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let course = args.next();
     let new_name = args.next();
     if let (Some(c), Some(n), Some(g)) = (course, new_name, msg.guild_id) {
-        if let Ok(r) = roles.rename_course(c, n, ctx, g).await {
-            msg.channel_id
-                .say(&ctx.http, format!("Cadeira renomeada: {} -> {}", c, r))
-                .await?;
-        } else {
-            msg.channel_id
-                .say(&ctx.http, "Não foram movidas cadeiras")
-                .await?;
+        match roles.rename_course(c, n, ctx, g).await {
+            Ok(nc) => {
+                msg.channel_id
+                    .say(&ctx.http, format!("Cadeira renomeada: {} -> {}", c, nc))
+                    .await?;
+            }
+            Err(e) => {
+                log!("{}", e);
+                msg.channel_id
+                    .say(&ctx.http, format!("Não foram renomeadas cadeiras.\n{}", e))
+                    .await?;
+            }
         }
     }
     Ok(())
