@@ -68,7 +68,6 @@ impl TypeMapKey for Endpoint {
     type Value = Endpoint;
 }
 
-
 #[macro_export]
 macro_rules! get {
     ($ctx:ident, $t:ty) => {
@@ -128,4 +127,3 @@ macro_rules! get {
             .await
     };
 }
-

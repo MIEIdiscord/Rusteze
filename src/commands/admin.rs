@@ -5,11 +5,12 @@ mod log_channel;
 mod minecraft;
 mod user_groups;
 
+use self::daemons::*;
 use crate::{
     config::Config,
     delayed_tasks::{Task, TaskSender},
+    get,
     util::Endpoint,
-    get
 };
 use channels::*;
 use chrono::{DateTime, Duration, Utc};
@@ -17,7 +18,6 @@ use futures::{
     future::{self, TryFutureExt},
     stream::StreamExt,
 };
-use self::daemons::*;
 use greeting_channels::*;
 use log_channel::*;
 use minecraft::*;
@@ -295,7 +295,10 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     member
         .user
         .dm(&ctx, |m| {
-            m.content(format!("You've been muted for {} {}.", muted_hours, unit_str))
+            m.content(format!(
+                "You've been muted for {} {}.",
+                muted_hours, unit_str
+            ))
         })
         .await?;
     msg.channel_id.say(&ctx, "muted.").await?;

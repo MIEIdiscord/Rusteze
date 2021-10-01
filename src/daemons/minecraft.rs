@@ -146,11 +146,7 @@ impl Daemon for Minecraft {
                         let guild = match guild_id.to_partial_guild(&cache_http.http).await {
                             Ok(g) => g,
                             Err(e) => {
-                                crate::log!(
-                                    "Can't find partial guild from id {}: {}",
-                                    guild_id,
-                                    e
-                                );
+                                crate::log!("Can't find partial guild from id {}: {}", guild_id, e);
                                 return ControlFlow::CONTINUE;
                             }
                         };
@@ -162,18 +158,14 @@ impl Daemon for Minecraft {
                             .filter_map(Color::from_rgb)
                             .min();
                         let status = match c {
-                            Some(c) => {
-                                Fork::new("./server_do.sh")
-                                    .args(&[format!("team join {} {}", c, name)])
-                                    .spawn()
-                                    .and_then(|mut c| c.wait())
-                            }
-                            None => {
-                                Fork::new("./server_do.sh")
-                                    .args(&[format!("team leave {}", name)])
-                                    .spawn()
-                                    .and_then(|mut c| c.wait())
-                            }
+                            Some(c) => Fork::new("./server_do.sh")
+                                .args(&[format!("team join {} {}", c, name)])
+                                .spawn()
+                                .and_then(|mut c| c.wait()),
+                            None => Fork::new("./server_do.sh")
+                                .args(&[format!("team leave {}", name)])
+                                .spawn()
+                                .and_then(|mut c| c.wait()),
                         };
                         if let Err(status) = status {
                             crate::log!("Failed to execute server_do: {}", status);

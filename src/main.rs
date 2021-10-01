@@ -14,7 +14,6 @@ use serenity::{
 };
 use std::{fs, sync::Arc};
 
-
 #[tokio::main]
 async fn main() {
     let token = match fs::read_to_string("auth") {

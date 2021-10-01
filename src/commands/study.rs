@@ -1,4 +1,4 @@
-use crate::{get, channels::MiEI };
+use crate::{channels::MiEI, get, log};
 use futures::{
     future,
     stream::{self, StreamExt},
@@ -173,7 +173,7 @@ async fn parse_study_args<'args, 'miei: 'args>(
 
 #[group]
 #[prefixes("courses")]
-#[commands(mk, rm, list)]
+#[commands(mk, rm, mv, rename, list)]
 struct Courses;
 
 #[command]
@@ -216,7 +216,7 @@ pub async fn mk(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[required_permissions(ADMINISTRATOR)]
 pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let trash = ctx.data.read().await;
-    let mut roles = get!(>trash, MiEI, write);
+    let mut roles = get!(> trash, MiEI, write);
     if let Some(guild) = msg.guild_id {
         let mut rm_roles = Vec::new();
         for course in args.raw() {
@@ -235,6 +235,69 @@ pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     format!("Cadeiras removidas: {}", rm_roles.join(" ")),
                 )
                 .await?;
+        }
+    }
+    Ok(())
+}
+
+#[command]
+#[description("Move e renomeia salas da cadeira especificada.")]
+#[usage("cadeira ano_novo semestre_novo [NOME_NOVO]")]
+#[min_args(3)]
+#[required_permissions(ADMINISTRATOR)]
+pub async fn mv(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let mut roles = get!(> trash, MiEI, write);
+    let mut args = args.raw();
+    let course = args.next();
+    let new_year = args.next();
+    let new_semester = args.next();
+    if let (Some(c), Some(y), Some(s), Some(g)) = (course, new_year, new_semester, msg.guild_id) {
+        let new_name = args.next().filter(|&n| !n.eq_ignore_ascii_case(c));
+        match roles.move_course(c, y, s, new_name, ctx, g).await {
+            Ok(nc) => {
+                msg.channel_id
+                    .say(
+                        &ctx.http,
+                        format!("Cadeira movida: {} -> {}ano{}semestre: {}", c, y, s, nc),
+                    )
+                    .await?;
+            }
+            Err(e) => {
+                log!("{}", e);
+                msg.channel_id
+                    .say(&ctx.http, format!("Não foram movidas cadeiras.\n{}", e))
+                    .await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[command]
+#[description("Renomeia salas da cadeira especificada.")]
+#[usage("cadeira nome_novo")]
+#[min_args(2)]
+#[required_permissions(ADMINISTRATOR)]
+pub async fn rename(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let mut roles = get!(> trash, MiEI, write);
+    let mut args = args.raw();
+    let course = args.next();
+    let new_name = args.next();
+    if let (Some(c), Some(n), Some(g)) = (course, new_name, msg.guild_id) {
+        match roles.rename_course(c, n, ctx, g).await {
+            Ok(nc) => {
+                msg.channel_id
+                    .say(&ctx.http, format!("Cadeira renomeada: {} -> {}", c, nc))
+                    .await?;
+            }
+            Err(e) => {
+                log!("{}", e);
+                msg.channel_id
+                    .say(&ctx.http, format!("Não foram renomeadas cadeiras.\n{}", e))
+                    .await?;
+            }
         }
     }
     Ok(())
