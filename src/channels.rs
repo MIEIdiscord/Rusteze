@@ -15,11 +15,14 @@ use serenity::{
 use std::{collections::HashMap, fs::File, io, sync::Arc};
 
 const COURSES: &str = "courses.json";
+const DEPRECATED_CATEGORY: ChannelId = ChannelId(618553779192856577);
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 pub struct MiEI {
     #[serde(flatten)]
     courses: HashMap<String, Year>,
+    #[serde(default)]
+    deprecated_courses: Vec<Course>,
 }
 
 impl MiEI {
@@ -215,6 +218,22 @@ impl MiEI {
         }
     }
 
+    pub async fn deprecate_course(
+        &mut self,
+        course: &str,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> anyhow::Result<String> {
+        if let Some(mut c) = self.courses.values_mut().find_map(|x| x.pop_role(course)) {
+            c.deprecate(ctx, guild).await?;
+            self.deprecated_courses.push(c);
+            self.write_courses()?;
+            Ok(course.to_string())
+        } else {
+            Err(anyhow!("No such course: {}", course))
+        }
+    }
+
     fn get_year_semester_names(&self, role_name: &str) -> Option<(String, String)> {
         let upper_role_name = role_name.to_uppercase();
         self.courses.iter().find_map(|(key, x)| {
@@ -347,6 +366,61 @@ impl Course {
             .edit_role(&ctx.http, self.role, |r| r.name(new_name))
             .await?;
 
+        Ok(())
+    }
+
+    async fn deprecate(&mut self, ctx: &Context, guild: GuildId) -> anyhow::Result<()> {
+        let mut role = guild
+            .roles(&ctx.http)
+            .await?
+            .get(&self.role)
+            .ok_or(anyhow!("No such role"))?
+            .clone();
+        let new_role = guild
+            .create_role(&ctx.http, |r| {
+                r.name(&role.name)
+                    .colour(MiEI::role_color(""))
+                    .hoist(role.hoist)
+                    .mentionable(false)
+                    .permissions(role.permissions)
+            })
+            .await?;
+        role.delete(&ctx.http).await?;
+        self.role = new_role.id;
+
+        for channel in &mut self.channels {
+            match channel.to_channel(&ctx.http).await? {
+                SerenityChannel::Guild(mut channel) => {
+                    channel
+                        .id
+                        .say(
+                            &ctx.http,
+                            "*está cadeira já não está entre nós, descansa em paz cadeira, \
+                                    a tua memória será para sempre preservada \
+                                    ||num datacenter qualquer do discord||*",
+                        )
+                        .await?;
+                    channel
+                        .create_permission(
+                            &ctx.http,
+                            &PermissionOverwrite {
+                                allow: Permissions::READ_MESSAGES,
+                                deny: Permissions::SEND_MESSAGES,
+                                kind: Role(self.role),
+                            },
+                        )
+                        .await?;
+                    channel
+                        .edit(&ctx.http, |c| c.category(DEPRECATED_CATEGORY))
+                        .await?;
+                }
+                SerenityChannel::Category(category) => {
+                    category.delete(&ctx.http).await?;
+                    *channel = DEPRECATED_CATEGORY;
+                }
+                _ => {}
+            }
+        }
         Ok(())
     }
 }

@@ -173,7 +173,7 @@ async fn parse_study_args<'args, 'miei: 'args>(
 
 #[group]
 #[prefixes("courses")]
-#[commands(mk, rm, mv, rename, list)]
+#[commands(mk, rm, mv, rename, deprecate, list)]
 struct Courses;
 
 #[command]
@@ -298,6 +298,36 @@ pub async fn rename(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     .say(&ctx.http, format!("Não foram renomeadas cadeiras.\n{}", e))
                     .await?;
             }
+        }
+    }
+    Ok(())
+}
+
+#[command]
+#[description("Descontinua salas das cadeiras especificadas.")]
+#[usage("[CADEIRA, ...]")]
+#[required_permissions(ADMINISTRATOR)]
+pub async fn deprecate(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let mut roles = get!(> trash, MiEI, write);
+    if let Some(g) = msg.guild_id {
+        let mut deprecated_courses = Vec::new();
+        for course in args.raw() {
+            if let Ok(c) = roles.deprecate_course(course, &ctx, g).await {
+                deprecated_courses.push(c);
+            }
+        }
+        if deprecated_courses.is_empty() {
+            msg.channel_id
+                .say(&ctx.http, "Não foram descontinuadas cadeiras.")
+                .await?;
+        } else {
+            msg.channel_id
+                .say(
+                    &ctx.http,
+                    format!("Cadeiras descontinuadas: {}", deprecated_courses.join(" ")),
+                )
+                .await?;
         }
     }
     Ok(())
