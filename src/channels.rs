@@ -379,7 +379,6 @@ impl Course {
         let new_role = guild
             .create_role(&ctx.http, |r| {
                 r.name(&role.name)
-                    .colour(MiEI::role_color(""))
                     .hoist(role.hoist)
                     .mentionable(false)
                     .permissions(role.permissions)
