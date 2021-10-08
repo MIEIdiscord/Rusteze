@@ -5,7 +5,7 @@ use serenity::{
     model::{
         channel::{
             Channel as SerenityChannel, ChannelType, PermissionOverwrite,
-            PermissionOverwriteType::Role,
+            PermissionOverwriteType::{Role, Member},
         },
         id::{ChannelId, GuildId, RoleId},
         permissions::Permissions,
@@ -23,6 +23,29 @@ pub struct MiEI {
     courses: HashMap<String, Year>,
     #[serde(default)]
     deprecated_courses: Vec<Course>,
+}
+
+async fn create_channels(
+    ctx: &Context,
+    guild: GuildId,
+    name: &str,
+    category_id: ChannelId,
+) -> serenity::Result<(ChannelId, ChannelId)> {
+    let duvidas = guild
+        .create_channel(&ctx, |c| {
+            c.name(format!("duvidas-{}", name))
+                .kind(ChannelType::Text)
+                .category(category_id)
+        })
+        .await?;
+    let anexos = guild
+        .create_channel(&ctx, |c| {
+            c.name(format!("anexos-{}", name))
+                .kind(ChannelType::Text)
+                .category(category_id)
+        })
+        .await?;
+    Ok((duvidas.id, anexos.id))
 }
 
 impl MiEI {
@@ -108,6 +131,11 @@ impl MiEI {
                     deny: Permissions::empty(),
                     kind: Role(role.id),
                 },
+                PermissionOverwrite {
+                    allow: Permissions::READ_MESSAGES,
+                    deny: Permissions::empty(),
+                    kind: Member(ctx.http.get_current_user().await?.id),
+                },
             ];
             let category = guild
                 .create_channel(&ctx, |c| {
@@ -117,25 +145,11 @@ impl MiEI {
                 })
                 .await
                 .unwrap();
-            let duvidas = guild
-                .create_channel(&ctx, |c| {
-                    c.name(format!("duvidas-{}", &upper_course))
-                        .kind(ChannelType::Text)
-                        .category(category.id)
-                })
-                .await
-                .unwrap();
-            let anexos = guild
-                .create_channel(&ctx, |c| {
-                    c.name(format!("anexos-{}", &upper_course))
-                        .kind(ChannelType::Text)
-                        .category(category.id)
-                })
-                .await
-                .unwrap();
+            let (duvidas_id, anexos_id) =
+                create_channels(ctx, guild, &upper_course, category.id).await?;
             let courses = Course {
                 role: role.id,
-                channels: vec![category.id, anexos.id, duvidas.id],
+                channels: vec![category.id, anexos_id, duvidas_id],
             };
             self.add_role(&upper_course, courses, semester, year);
             self.write_courses()?;
@@ -163,7 +177,7 @@ impl MiEI {
             .values_mut()
             .find_map(|x| x.pop_role(role_name))
         {
-            x.remove(&ctx, guild).await?;
+            dbg!(x.remove(&ctx, guild).await)?;
             self.write_courses()?;
             Ok(role_name)
         } else {
@@ -259,6 +273,31 @@ impl MiEI {
                 })
             })
         })
+    }
+
+    pub async fn add_channel_to_course(
+        &mut self,
+        ctx: &Context,
+        guild: GuildId,
+        course: &str,
+        new_channel_names: &str,
+    ) -> anyhow::Result<()> {
+        let course = course.to_uppercase();
+        let course = self.courses.values_mut().find_map(|year| {
+            year.courses
+                .values_mut()
+                .find_map(|semester| semester.courses.get_mut(&course))
+        });
+        if let Some(c) = course {
+            let cat = c.channels[0];
+            let (duvidas_id, anexos_id) =
+                create_channels(ctx, guild, new_channel_names, cat).await?;
+            c.channels.extend_from_slice(&[duvidas_id, anexos_id]);
+            self.write_courses()?;
+            Ok(())
+        } else {
+            Err(anyhow!("Can't find that course"))
+        }
     }
 }
 
