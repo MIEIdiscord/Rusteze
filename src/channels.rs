@@ -177,7 +177,7 @@ impl MiEI {
             .values_mut()
             .find_map(|x| x.pop_role(role_name))
         {
-            dbg!(x.remove(&ctx, guild).await)?;
+            x.remove(&ctx, guild).await?;
             self.write_courses()?;
             Ok(role_name)
         } else {
