@@ -173,7 +173,7 @@ async fn parse_study_args<'args, 'miei: 'args>(
 
 #[group]
 #[prefixes("courses")]
-#[commands(mk, rm, mv, rename, deprecate, list)]
+#[commands(mk, rm, mv, rename, deprecate, list, add_uc)]
 struct Courses;
 
 #[command]
@@ -330,6 +330,26 @@ pub async fn deprecate(ctx: &Context, msg: &Message, args: Args) -> CommandResul
                 .await?;
         }
     }
+    Ok(())
+}
+
+#[command]
+#[description("Add channel to existing course.")]
+#[usage("CADEIRA NEW_CHANNEL")]
+#[min_args(2)]
+#[required_permissions(ADMINISTRATOR)]
+pub async fn add_uc(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let trash = ctx.data.read().await;
+    let mut roles = get!(> trash, MiEI, write);
+    let guild = msg.guild_id.ok_or("not in a guild")?;
+    let mut args = args.raw();
+    let course = args.next().unwrap();
+    let new_channel = args.next().unwrap();
+    roles
+        .add_channel_to_course(ctx, guild, course, new_channel)
+        .await?;
+    msg.channel_id.say(ctx, "added").await?;
+
     Ok(())
 }
 
