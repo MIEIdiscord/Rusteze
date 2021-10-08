@@ -5,7 +5,7 @@ use serenity::{
     model::{
         channel::{
             Channel as SerenityChannel, ChannelType, PermissionOverwrite,
-            PermissionOverwriteType::{Role, Member},
+            PermissionOverwriteType::{Member, Role},
         },
         id::{ChannelId, GuildId, RoleId},
         permissions::Permissions,
@@ -46,6 +46,23 @@ async fn create_channels(
         })
         .await?;
     Ok((duvidas.id, anexos.id))
+}
+
+fn add_category_emoji<'a>(year: &'a str, s: &'a str) -> String {
+    format!(
+        "{} {}",
+        match year {
+            "1" => "📚",
+            "2" => "📗",
+            "3" => "📘",
+            "4" => "📙",
+            "5" => "📓",
+            _ => "",
+        },
+        s
+    )
+    .trim()
+    .to_string()
 }
 
 impl MiEI {
@@ -139,7 +156,7 @@ impl MiEI {
             ];
             let category = guild
                 .create_channel(&ctx, |c| {
-                    c.name(&upper_course)
+                    c.name(add_category_emoji(year, &upper_course))
                         .kind(ChannelType::Category)
                         .permissions(perms)
                 })
@@ -205,7 +222,7 @@ impl MiEI {
                 })
                 .await?;
             if let Some(n) = upper_new_name {
-                old_course.rename(&n, &ctx, guild).await?;
+                old_course.rename(&n, &new_year, &ctx, guild).await?;
                 self.add_role(&n, old_course, new_semester, new_year);
             } else {
                 self.add_role(&course.to_uppercase(), old_course, new_semester, new_year);
@@ -385,7 +402,13 @@ impl Course {
         Ok(())
     }
 
-    async fn rename(&self, new_name: &str, ctx: &Context, guild: GuildId) -> serenity::Result<()> {
+    async fn rename(
+        &self,
+        new_name: &str,
+        year: &str,
+        ctx: &Context,
+        guild: GuildId,
+    ) -> serenity::Result<()> {
         for channel in &self.channels {
             match channel.to_channel(&ctx.http).await? {
                 SerenityChannel::Guild(mut channel) => {
@@ -396,7 +419,9 @@ impl Course {
                         .await?;
                 }
                 SerenityChannel::Category(mut channel) => {
-                    channel.edit(&ctx.http, |c| c.name(new_name)).await?;
+                    channel
+                        .edit(&ctx.http, |c| c.name(add_category_emoji(year, new_name)))
+                        .await?;
                 }
                 _ => {}
             }
