@@ -257,8 +257,8 @@ pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> Comma
 }
 
 #[command]
-#[description("Mute a user for 12h or the specified time in hours")]
-#[usage("@user [time] [h|hours|m|minutes|s|seconds|d|days]")]
+#[description("Mute a user for 12h or the specified time")]
+#[usage("@user [time] [h|hours|m|minutes|s|seconds|d|days] [reason]")]
 #[min_args(1)]
 pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     fn pick_unit(s: &str) -> Option<(&'static str, fn(t: i64) -> Duration)> {
@@ -272,9 +272,50 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     }
     let guild = msg.guild_id.ok_or("Not in a guild")?;
     let user = args.single::<UserId>()?;
-    let muted_hours = args.single::<u32>().map_err(|_| "invalid number")?;
-    let (unit_str, unit) = pick_unit(args.rest()).ok_or("invalid time unit")?;
+    let (muted_hours, unit_str, unit, reason) = match args.single::<String>() {
+        Ok(mut a) => match a.parse::<u32>() {
+            Ok(muted_hours) => {
+                let (unit_str, unit) = match args.single::<String>() {
+                    Ok(time_spec) => pick_unit(&time_spec).ok_or("invalid time unit")?,
+                    Err(_) => ("h", Duration::hours as _),
+                };
+                (muted_hours, unit_str, unit, String::from(args.rest()))
+            }
+            Err(_) => {
+                a += " ";
+                a += args.rest();
+                (12, "h", Duration::hours as _, a)
+            }
+        }
+        Err(_) => (12, "h", Duration::hours as _, String::new())
+    };
     let mut member = guild.member(ctx, user).await?;
+    msg.channel_id.say(
+        ctx,
+        format!(
+            "User {} will be muted for {} {} with reason \"{}\"\n\n**Reply with yes to proceed.**",
+                member.mention(),
+                muted_hours,
+                unit_str,
+                reason
+        )
+    ).await?;
+    let reply = msg.channel_id
+        .await_reply(ctx)
+        .author_id(msg.author.id)
+        .timeout(Duration::minutes(10).to_std().unwrap());
+    let reply = match reply.await {
+        Some(m) => m,
+        None => {
+            msg.channel_id.say(ctx, "No reply found in time, aborting").await?;
+            return Ok(())
+        }
+    };
+
+    if reply.content != "yes" {
+        msg.channel_id.say(ctx, "Aborting").await?;
+        return Ok(())
+    }
 
     let mute_role = get!(ctx, Config, read)
         .get_mute_role()
@@ -296,8 +337,8 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         .user
         .dm(&ctx, |m| {
             m.content(format!(
-                "You've been muted for {} {}.",
-                muted_hours, unit_str
+                "You've been muted for {} {}. {}",
+                muted_hours, unit_str, reason
             ))
         })
         .await?;

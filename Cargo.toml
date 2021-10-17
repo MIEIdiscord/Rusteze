@@ -6,7 +6,7 @@ edition = "2018"
 default-run = "rusteze"
 
 [dependencies]
-serenity = "0.10"
+serenity = { version = "0.10", features = ["collector"] }
 serde = "1"
 serde_json = "1"
 regex = "1"
