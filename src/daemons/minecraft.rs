@@ -92,7 +92,7 @@ impl Display for Color {
 }
 
 #[serenity::async_trait]
-impl Daemon for Minecraft {
+impl Daemon<true> for Minecraft {
     type Data = CacheAndHttp;
     async fn name(&self) -> String {
         String::from("Minecraft colours")

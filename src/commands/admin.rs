@@ -16,7 +16,7 @@ use channels::*;
 use chrono::{DateTime, Duration, Utc};
 use futures::{
     future::{self, TryFutureExt},
-    stream::StreamExt,
+    stream::{StreamExt, TryStreamExt},
 };
 use greeting_channels::*;
 use log_channel::*;
@@ -35,8 +35,16 @@ use serenity::{
     },
     prelude::*,
 };
-use std::{any::Any, os::unix::process::CommandExt, process::Command as Fork, str, time::Instant};
+use std::{
+    any::Any,
+    os::unix::process::CommandExt,
+    process::Command as Fork,
+    str,
+    collections::HashSet,
+    time::Instant
+};
 use user_groups::*;
+use super::cesium::CESIUM_ROLE;
 
 #[group]
 #[commands(
@@ -47,7 +55,8 @@ use user_groups::*;
     say,
     whitelist,
     mute,
-    set_mute_role
+    set_mute_role,
+    tomada_de_posse,
 )]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
@@ -99,6 +108,47 @@ pub async fn whitelist(ctx: &Context, msg: &Message, args: Args) -> CommandResul
         stdout += stderr;
         Err(stdout.into())
     }
+}
+
+fn parse_user_tag(s: &str) -> Option<(&str, u16)> {
+    let pound_sign = s.find('#')?;
+    let name = &s[..pound_sign];
+    let discrim = s[(pound_sign + 1)..].parse::<u16>().ok()?;
+    if discrim > 9999 {
+        return None;
+    }
+    Some((name, discrim))
+}
+
+#[command]
+#[description("Sets the users that are now cesium")]
+#[usage("[new line separated list of users]")]
+#[min_args(1)]
+pub async fn tomada_de_posse(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let guild_id = msg.guild_id.ok_or("must be in a guild to use this command")?;
+    let users = &args.rest()
+        .split('\n')
+        .filter(|x| !x.is_empty())
+        .map(|x| parse_user_tag(x).ok_or(x))
+        .collect::<Result<HashSet<(&str, u16)>, &str>>()
+        .map_err(|e| format!("Parse error on user: {:?}", e))?;
+
+    guild_id.members_iter(ctx)
+        .try_for_each(|mut m| async move {
+            match (m.roles.contains(&CESIUM_ROLE), users.contains(&(&m.user.name, m.user.discriminator))) {
+                (true, false) => {
+                    m.remove_role(ctx, CESIUM_ROLE).await?;
+                    msg.channel_id.say(ctx, format!("❌ Removed from cesium: {}", m.user.name)).await?;
+                }
+                (false, true) => {
+                    m.add_role(ctx, CESIUM_ROLE).await?;
+                    msg.channel_id.say(ctx, format!("✅ Added to cesium: {}", m.user.name)).await?;
+                }
+                (_, _) => {},
+            }
+            Ok(())
+        }).await?;
+    Ok(())
 }
 
 #[command]
