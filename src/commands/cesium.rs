@@ -31,7 +31,7 @@ use std::{
 struct Cesium;
 
 const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
-const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
+pub const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
 const MODS_ROLE: RoleId = RoleId(618572138718298132);
 const MENTOR_ROLE: RoleId = RoleId(688760837980291120);
 const CHANNELS: &str = "cesium_channels.json";
