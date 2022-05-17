@@ -9,6 +9,8 @@ pub mod util;
 
 pub use self::daemons::DaemonManager;
 use crate::config::Config;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serenity::{
     framework::standard::{
         help_commands,
@@ -125,6 +127,63 @@ impl EventHandler for Handler {
                 )
             })
             .ok();
+        }
+    }
+
+    async fn message(&self, ctx: Context, msg: Message) {
+        static INVITE: Lazy<Regex> = Lazy::new(|| Regex::new("").unwrap());
+
+        if let Some(link) = INVITE.find(&msg.content) {
+            if msg
+                .guild(&ctx)
+                .await
+                .unwrap()
+                .invites(&ctx)
+                .await
+                .unwrap_or_default()
+                .iter()
+                .map(|i| i.url())
+                .any(|i| i == link.as_str())
+            {
+                msg.delete(&ctx).await.unwrap();
+
+                msg.author
+                    .direct_message(&ctx, |m| m.content("Bad person. No share linkerinos"))
+                    .await
+                    .unwrap();
+
+                let share_map = ctx.data.read().await;
+                let config = get!(> share_map, Config, read);
+
+                if let Some(ch) = config.log_channel() {
+                    ch.send_message(&ctx, |m| {
+                        m.embed(|e| {
+                            e.title("User sent a external server invite")
+                                .description(format!(
+                                    "**Name:**      {}\n**Link:** {}",
+                                    msg.author.name,
+                                    link.as_str()
+                                ))
+                                .thumbnail(
+                                    msg.author
+                                        .avatar_url()
+                                        .as_deref()
+                                        .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
+                                )
+                        })
+                    })
+                    .await
+                    .map_err(|e| {
+                        log!(
+                            "Couldn't log user {} sending a discord invite (link: {}). Error: {:?}",
+                            msg.author.name,
+                            link.as_str(),
+                            e
+                        )
+                    })
+                    .ok();
+                }
+            }
         }
     }
 }
