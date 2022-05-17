@@ -130,9 +130,13 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        static INVITE: Lazy<Regex> = Lazy::new(|| Regex::new("Man").unwrap());
+        print!("aqweqweqwe");
+        static INVITE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new("(https?://)?(www.)?discord.(gg|li|me)/[[:alnum:]]{2,32}").unwrap()
+        });
 
-        if let Some(link) = INVITE.find(&msg.content) {
+        if INVITE.is_match(&msg.content) {
+            let link = INVITE.find(&msg.content).unwrap().as_str();
             if msg
                 .guild(&ctx)
                 .await
@@ -142,7 +146,7 @@ impl EventHandler for Handler {
                 .unwrap_or_default()
                 .iter()
                 .map(|i| i.url())
-                .any(|i| i == link.as_str())
+                .any(|i| i == link)
             {
                 msg.delete(&ctx).await.unwrap();
 
@@ -155,13 +159,17 @@ impl EventHandler for Handler {
                 let config = get!(> share_map, Config, read);
 
                 if let Some(ch) = config.log_channel() {
+                    let channel_name = match msg.channel(&ctx).await.unwrap().guild() {
+                        Some(guild_channel) => guild_channel.name,
+                        None => "in DM".to_owned(),
+                    };
+
                     ch.send_message(&ctx, |m| {
                         m.embed(|e| {
                             e.title("User sent a external server invite")
                                 .description(format!(
-                                    "**Name:**      {}\n**Link:** {}",
-                                    msg.author.name,
-                                    link.as_str()
+                                    "**Name:**   {}\n**Channel** {}\n**Link:**   {}",
+                                    msg.author.name, channel_name, link
                                 ))
                                 .thumbnail(
                                     msg.author
@@ -176,7 +184,7 @@ impl EventHandler for Handler {
                         log!(
                             "Couldn't log user {} sending a discord invite (link: {}). Error: {:?}",
                             msg.author.name,
-                            link.as_str(),
+                            link,
                             e
                         )
                     })
