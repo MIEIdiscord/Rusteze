@@ -100,7 +100,7 @@ impl EventHandler for Handler {
         if let Some(ch) = config.log_channel() {
             let nick = member_data
                 .as_ref()
-                .and_then(|m| m.nick.as_ref().map(|s| s.as_str()))
+                .and_then(|m| m.nick.as_deref())
                 .unwrap_or("None");
             ch.send_message(&ctx, |m| {
                 m.embed(|e| {
@@ -111,8 +111,7 @@ impl EventHandler for Handler {
                         ))
                         .thumbnail(
                             user.avatar_url()
-                                .as_ref()
-                                .map(|s| s.as_str())
+                                .as_deref()
                                 .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
                         )
                 })
@@ -131,7 +130,7 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        static INVITE: Lazy<Regex> = Lazy::new(|| Regex::new("").unwrap());
+        static INVITE: Lazy<Regex> = Lazy::new(|| Regex::new("Man").unwrap());
 
         if let Some(link) = INVITE.find(&msg.content) {
             if msg
