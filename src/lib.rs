@@ -146,7 +146,7 @@ impl EventHandler for Handler {
                 .unwrap_or_default()
                 .iter()
                 .map(|i| i.url())
-                .any(|i| i == link)
+                .all(|i| i != link)
             {
                 msg.delete(&ctx).await.unwrap();
 
