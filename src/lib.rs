@@ -130,7 +130,6 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
-        print!("aqweqweqwe");
         static INVITE: Lazy<Regex> = Lazy::new(|| {
             Regex::new("(https?://)?(www.)?discord.(gg|li|me)/[[:alnum:]]{2,32}").unwrap()
         });
