@@ -7,7 +7,7 @@ pub mod daemons;
 pub mod delayed_tasks;
 pub mod util;
 
-pub use self::daemons::DaemonManager;
+pub use self::daemons::{DaemonManager, DaemonManagerKey};
 use crate::config::Config;
 use once_cell::sync::Lazy;
 use regex::Regex;

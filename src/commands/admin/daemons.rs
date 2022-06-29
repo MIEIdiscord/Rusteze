@@ -25,7 +25,7 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
             &ctx,
             format!(
                 "```\n{}\n```",
-                get!(> share_map, crate::DaemonManager, lock)
+                get!(> share_map, crate::DaemonManagerKey, lock)
                     .daemon_names()
                     .format_with("\n", |(i, n), f| f(&format_args!("{}: {}", i, n.name())))
             ),
@@ -39,7 +39,7 @@ async fn daemon_list(ctx: &Context, msg: &Message) -> CommandResult {
 #[usage("[number]")]
 async fn daemon_now(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let share_map = ctx.data.read().await;
-    let mut daemon_t = get!(> share_map,crate::DaemonManager, lock);
+    let mut daemon_t = get!(> share_map,crate::DaemonManagerKey, lock);
     let e = match args.single::<usize>() {
         Ok(u) => daemon_t.run_one(u).await,
         Err(ArgError::Eos) => {

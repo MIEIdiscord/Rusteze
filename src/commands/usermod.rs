@@ -2,7 +2,7 @@ use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
-        Args, CommandResult,
+        Args, CommandResult, CommandError,
     },
     model::{
         channel::Message,
@@ -113,10 +113,10 @@ pub async fn role_by_name(
     ctx: &Context,
     guild_id: GuildId,
     role: &str,
-) -> Result<Option<RoleId>, serenity::Error> {
+) -> Result<Option<RoleId>, CommandError> {
     let finder = aho_corasick::AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
-        .build(&[role]);
+        .build(&[role])?;
     Ok(guild_id
         .to_partial_guild(ctx)
         .await?

@@ -59,9 +59,9 @@ async fn main() {
         let mc = Arc::new(Mutex::new(Minecraft::load().unwrap_or_default()));
         let mut data = client.data.write().await;
         data.insert::<Minecraft>(Arc::clone(&mc));
-        let mut dt = DaemonManager::new(client.cache_and_http.clone());
+        let mut dt = DaemonManager::spawn(client.cache_and_http.clone());
         dt.add_daemon(mc).await;
-        data.insert::<DaemonManager>(Arc::new(Mutex::new(dt)));
+        data.insert::<DaemonManagerKey>(Arc::new(Mutex::new(dt)));
     }
     {
         let mut tasks_data = TypeMap::new();
