@@ -9,6 +9,8 @@ pub mod util;
 
 pub use self::daemons::DaemonManager;
 use crate::config::Config;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serenity::{
     framework::standard::{
         help_commands,
@@ -98,7 +100,7 @@ impl EventHandler for Handler {
         if let Some(ch) = config.log_channel() {
             let nick = member_data
                 .as_ref()
-                .and_then(|m| m.nick.as_ref().map(|s| s.as_str()))
+                .and_then(|m| m.nick.as_deref())
                 .unwrap_or("None");
             ch.send_message(&ctx, |m| {
                 m.embed(|e| {
@@ -109,8 +111,7 @@ impl EventHandler for Handler {
                         ))
                         .thumbnail(
                             user.avatar_url()
-                                .as_ref()
-                                .map(|s| s.as_str())
+                                .as_deref()
                                 .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
                         )
                 })
@@ -125,6 +126,70 @@ impl EventHandler for Handler {
                 )
             })
             .ok();
+        }
+    }
+
+    async fn message(&self, ctx: Context, msg: Message) {
+        static INVITE: Lazy<Regex> = Lazy::new(|| {
+            Regex::new("(https?://)?(www.)?discord.(gg|li|me)/[[:alnum:]]{2,32}").unwrap()
+        });
+
+        if INVITE.is_match(&msg.content) {
+            let link = INVITE.find(&msg.content).unwrap().as_str();
+            if msg
+                .guild(&ctx)
+                .await
+                .unwrap()
+                .invites(&ctx)
+                .await
+                .unwrap_or_default()
+                .iter()
+                .map(|i| i.url())
+                .all(|i| i != link)
+            {
+                msg.delete(&ctx).await.unwrap();
+
+                msg.author
+                    .direct_message(&ctx, |m| m.content("Bad person. No share inviterinos!"))
+                    .await
+                    .unwrap();
+
+                let share_map = ctx.data.read().await;
+                let config = get!(> share_map, Config, read);
+
+                if let Some(ch) = config.log_channel() {
+                    let channel_name = match msg.channel(&ctx).await.unwrap().guild() {
+                        Some(guild_channel) => guild_channel.name,
+                        None => "in DM".to_owned(),
+                    };
+
+                    ch.send_message(&ctx, |m| {
+                        m.embed(|e| {
+                            e.title("User sent a external server invite")
+                                .description(format!(
+                                    "**Name:**   {}\n**Channel** {}\n**Link:**   {}",
+                                    msg.author.name, channel_name, link
+                                ))
+                                .thumbnail(
+                                    msg.author
+                                        .avatar_url()
+                                        .as_deref()
+                                        .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
+                                )
+                        })
+                    })
+                    .await
+                    .map_err(|e| {
+                        log!(
+                            "Couldn't log user {} sending a discord invite (link: {}). Error: {:?}",
+                            msg.author.name,
+                            link,
+                            e
+                        )
+                    })
+                    .ok();
+                }
+            }
         }
     }
 }
