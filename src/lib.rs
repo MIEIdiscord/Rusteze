@@ -150,7 +150,7 @@ impl EventHandler for Handler {
                 msg.delete(&ctx).await.unwrap();
 
                 msg.author
-                    .direct_message(&ctx, |m| m.content("Bad person. No share linkerinos"))
+                    .direct_message(&ctx, |m| m.content("Bad person. No share inviterinos!"))
                     .await
                     .unwrap();
 
