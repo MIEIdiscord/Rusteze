@@ -62,14 +62,14 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, new_member: Member) {
+    async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
         let share_map = ctx.data.read().await;
         let config = get!(> share_map, Config, read);
         if let (Some(ch), Some(greet_message)) =
             (config.greet_channel(), config.greet_channel_message())
         {
             let user = new_member.user.id;
-            let guild = guild_id.to_partial_guild(&ctx.http).await;
+            let guild = new_member.guild_id.to_partial_guild(&ctx).await;
             ch.send_message(&ctx, |m| {
                 m.content(user.mention());
                 m.embed(|e| {
@@ -134,7 +134,6 @@ impl EventHandler for Handler {
             let link = INVITE.find(&msg.content).unwrap().as_str();
             if msg
                 .guild(&ctx)
-                .await
                 .unwrap()
                 .invites(&ctx)
                 .await
@@ -239,7 +238,12 @@ pub async fn after_hook(ctx: &Context, msg: &Message, cmd_name: &str, error: Com
 }
 
 #[hook]
-pub async fn dispatch_error_hook(ctx: &Context, msg: &Message, error: DispatchError) {
+pub async fn dispatch_error_hook(
+    ctx: &Context,
+    msg: &Message,
+    error: DispatchError,
+    _command_name: &str,
+) {
     log!(
         "Command '{}' for user '{}::{}' failed to dispatch because '{:?}'",
         msg.content,
@@ -274,8 +278,7 @@ pub async fn is_admin(ctx: &Context, msg: &Message) -> bool {
                 .member(&ctx.http, &msg.author)
                 .await
                 .ok()?
-                .permissions(&ctx)
-                .await
+                .permissions(ctx)
                 .ok()?
                 .administrator(),
         )

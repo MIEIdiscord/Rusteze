@@ -82,7 +82,7 @@ impl Config {
     }
 
     pub fn greet_channel_message(&self) -> Option<&str> {
-        self.greet_message.as_ref().map(|s| s.as_str())
+        self.greet_message.as_deref()
     }
 
     pub fn set_log_channel(&mut self, ch: Option<ChannelId>) -> Result<(), Error> {

@@ -107,7 +107,7 @@ impl Daemon<true> for Minecraft {
             Some(g) => g,
             None => return ControlFlow::CONTINUE,
         };
-        let output = match minecraft_server_get(&["list"]) {
+        let output = match minecraft_server_get(["list"]) {
             Ok(o) => o,
             Err(e) => {
                 crate::log!("Failed to get from the minecraft server: {}", e);

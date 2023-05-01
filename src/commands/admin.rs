@@ -6,6 +6,7 @@ mod minecraft;
 mod user_groups;
 
 use self::daemons::*;
+use super::cesium::CESIUM_ROLE;
 use crate::{
     config::Config,
     delayed_tasks::{Task, TaskSender},
@@ -36,15 +37,10 @@ use serenity::{
     prelude::*,
 };
 use std::{
-    any::Any,
-    os::unix::process::CommandExt,
-    process::Command as Fork,
-    str,
-    collections::HashSet,
-    time::Instant
+    any::Any, collections::HashSet, os::unix::process::CommandExt, process::Command as Fork, str,
+    time::Instant,
 };
 use user_groups::*;
-use super::cesium::CESIUM_ROLE;
 
 #[group]
 #[commands(
@@ -56,7 +52,7 @@ use super::cesium::CESIUM_ROLE;
     whitelist,
     mute,
     set_mute_role,
-    tomada_de_posse,
+    tomada_de_posse
 )]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
@@ -125,29 +121,41 @@ fn parse_user_tag(s: &str) -> Option<(&str, u16)> {
 #[usage("[new line separated list of users]")]
 #[min_args(1)]
 pub async fn tomada_de_posse(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let guild_id = msg.guild_id.ok_or("must be in a guild to use this command")?;
-    let users = &args.rest()
+    let guild_id = msg
+        .guild_id
+        .ok_or("must be in a guild to use this command")?;
+    let users = &args
+        .rest()
         .split('\n')
         .filter(|x| !x.is_empty())
         .map(|x| parse_user_tag(x).ok_or(x))
         .collect::<Result<HashSet<(&str, u16)>, &str>>()
         .map_err(|e| format!("Parse error on user: {:?}", e))?;
 
-    guild_id.members_iter(ctx)
+    guild_id
+        .members_iter(ctx)
         .try_for_each(|mut m| async move {
-            match (m.roles.contains(&CESIUM_ROLE), users.contains(&(&m.user.name, m.user.discriminator))) {
+            match (
+                m.roles.contains(&CESIUM_ROLE),
+                users.contains(&(&m.user.name, m.user.discriminator)),
+            ) {
                 (true, false) => {
                     m.remove_role(ctx, CESIUM_ROLE).await?;
-                    msg.channel_id.say(ctx, format!("❌ Removed from cesium: {}", m.user.name)).await?;
+                    msg.channel_id
+                        .say(ctx, format!("❌ Removed from cesium: {}", m.user.name))
+                        .await?;
                 }
                 (false, true) => {
                     m.add_role(ctx, CESIUM_ROLE).await?;
-                    msg.channel_id.say(ctx, format!("✅ Added to cesium: {}", m.user.name)).await?;
+                    msg.channel_id
+                        .say(ctx, format!("✅ Added to cesium: {}", m.user.name))
+                        .await?;
                 }
-                (_, _) => {},
+                (_, _) => {}
             }
             Ok(())
-        }).await?;
+        })
+        .await?;
     Ok(())
 }
 
@@ -169,7 +177,7 @@ pub async fn update(ctx: &Context, msg: &Message) -> CommandResult {
 
     let message = msg.channel_id.say(&ctx, "Checking remote...").await?;
     let status = Fork::new("git")
-        .args(&["rev-list", "--count", "master...master@{upstream}"])
+        .args(["rev-list", "--count", "master...master@{upstream}"])
         .output()?;
     check_msg(message).await?;
 
@@ -248,7 +256,7 @@ async fn reboot_bot(ctx: &Context, ch_id: ChannelId) -> CommandResult {
     ch_id.say(ctx, "Rebooting...").await?;
     std::env::set_var("RUST_BACKTRACE", "1");
     let error = Fork::new("cargo")
-        .args(&[
+        .args([
             "run",
             if cfg!(debug_assertions) {
                 ""
@@ -311,7 +319,8 @@ pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> Comma
 #[usage("@user [time] [h|hours|m|minutes|s|seconds|d|days] [reason]")]
 #[min_args(1)]
 pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    fn pick_unit(s: &str) -> Option<(&'static str, fn(t: i64) -> Duration)> {
+    type UnitMapper = (&'static str, fn(t: i64) -> Duration);
+    fn pick_unit(s: &str) -> Option<UnitMapper> {
         match s {
             "d" | "days" => Some(("days", Duration::days)),
             "h" | "hours" | "" => Some(("hours", Duration::hours)),
@@ -336,40 +345,45 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
                 a += args.rest();
                 (12, "h", Duration::hours as _, a)
             }
-        }
-        Err(_) => (12, "h", Duration::hours as _, String::new())
+        },
+        Err(_) => (12, "h", Duration::hours as _, String::new()),
     };
     let mut member = guild.member(ctx, user).await?;
-    msg.channel_id.say(
-        ctx,
-        format!(
+    msg.channel_id
+        .say(
+            ctx,
+            format!(
             "User {} will be muted for {} {} with reason \"{}\"\n\n**Reply with yes to proceed.**",
                 member.mention(),
                 muted_hours,
                 unit_str,
                 reason
+        ),
         )
-    ).await?;
-    let reply = msg.channel_id
+        .await?;
+    let reply = msg
+        .channel_id
         .await_reply(ctx)
         .author_id(msg.author.id)
         .timeout(Duration::minutes(10).to_std().unwrap());
     let reply = match reply.await {
         Some(m) => m,
         None => {
-            msg.channel_id.say(ctx, "No reply found in time, aborting").await?;
-            return Ok(())
+            msg.channel_id
+                .say(ctx, "No reply found in time, aborting")
+                .await?;
+            return Ok(());
         }
     };
 
     if reply.content != "yes" {
         msg.channel_id.say(ctx, "Aborting").await?;
-        return Ok(())
+        return Ok(());
     }
 
     let mute_role = get!(ctx, Config, read)
         .get_mute_role()
-        .ok_or_else(|| "Mute role not set")?;
+        .ok_or("Mute role not set")?;
     member.add_role(ctx, mute_role).await?;
 
     let unmute_task = Box::new(Unmute {
@@ -378,7 +392,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         user_id: member.user.id,
         role_id: mute_role,
     });
-    if let Err(_) = get!(ctx, TaskSender).send(unmute_task).await {
+    if get!(ctx, TaskSender).send(unmute_task).await.is_err() {
         msg.channel_id
             .say(&ctx, "Failed to set unmute timeout.")
             .await?;

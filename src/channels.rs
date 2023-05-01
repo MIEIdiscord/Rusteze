@@ -80,10 +80,7 @@ impl MiEI {
             .next()
     }
 
-    pub fn wildcard_roles<'a>(
-        &'a self,
-        wildcard: &str,
-    ) -> impl Iterator<Item = (&str, RoleId)> + 'a {
+    pub fn wildcard_roles(&self, wildcard: &str) -> impl Iterator<Item = (&str, RoleId)> {
         let upper = wildcard.to_uppercase();
         self.courses
             .values()
@@ -140,16 +137,16 @@ impl MiEI {
             let perms = vec![
                 PermissionOverwrite {
                     allow: Permissions::empty(),
-                    deny: Permissions::READ_MESSAGES,
+                    deny: Permissions::VIEW_CHANNEL,
                     kind: Role(guild.as_u64().to_owned().into()),
                 },
                 PermissionOverwrite {
-                    allow: Permissions::READ_MESSAGES,
+                    allow: Permissions::VIEW_CHANNEL,
                     deny: Permissions::empty(),
                     kind: Role(role.id),
                 },
                 PermissionOverwrite {
-                    allow: Permissions::READ_MESSAGES,
+                    allow: Permissions::VIEW_CHANNEL,
                     deny: Permissions::empty(),
                     kind: Member(ctx.http.get_current_user().await?.id),
                 },
@@ -194,7 +191,7 @@ impl MiEI {
             .values_mut()
             .find_map(|x| x.pop_role(role_name))
         {
-            x.remove(&ctx, guild).await?;
+            x.remove(ctx, guild).await?;
             self.write_courses()?;
             Ok(role_name)
         } else {
@@ -222,7 +219,7 @@ impl MiEI {
                 })
                 .await?;
             if let Some(n) = upper_new_name {
-                old_course.rename(&n, &new_year, &ctx, guild).await?;
+                old_course.rename(&n, new_year, ctx, guild).await?;
                 self.add_role(&n, old_course, new_semester, new_year);
             } else {
                 self.add_role(&course.to_uppercase(), old_course, new_semester, new_year);
@@ -268,11 +265,7 @@ impl MiEI {
     fn get_year_semester_names(&self, role_name: &str) -> Option<(String, String)> {
         let upper_role_name = role_name.to_uppercase();
         self.courses.iter().find_map(|(key, x)| {
-            if let Some(sem) = x.get_semester_name(&upper_role_name) {
-                Some((key.clone(), sem))
-            } else {
-                None
-            }
+            x.get_semester_name(&upper_role_name).map(|sem| (key.clone(), sem))
         })
     }
 
@@ -350,7 +343,7 @@ impl Year {
             .map(|x| x.courses.iter().map(|(a, c)| (a.as_str(), c.role)))
     }
 
-    fn get_role<'a>(&self, role_name: &'a str) -> Option<&Course> {
+    fn get_role(&self, role_name: &str) -> Option<&Course> {
         self.courses.values().find_map(|x| x.courses.get(role_name))
     }
 
@@ -412,7 +405,7 @@ impl Course {
         for channel in &self.channels {
             match channel.to_channel(&ctx.http).await? {
                 SerenityChannel::Guild(mut channel) => {
-                    let prefix_index = channel.name.find("-").unwrap_or(channel.name.len());
+                    let prefix_index = channel.name.find('-').unwrap_or(channel.name.len());
                     let prefix = &channel.name[..prefix_index].to_string();
                     channel
                         .edit(&ctx.http, |c| c.name(format!("{}-{}", prefix, new_name)))
@@ -467,7 +460,7 @@ impl Course {
                         .create_permission(
                             &ctx.http,
                             &PermissionOverwrite {
-                                allow: Permissions::READ_MESSAGES,
+                                allow: Permissions::VIEW_CHANNEL,
                                 deny: Permissions::SEND_MESSAGES,
                                 kind: Role(self.role),
                             },

@@ -47,7 +47,7 @@ pub async fn material(ctx: &Context, msg: &Message) -> CommandResult {
 #[description("Shows the list of online players")]
 #[usage("")]
 pub async fn online(ctx: &Context, msg: &Message) -> CommandResult {
-    let output = minecraft_server_get(&["list"])?;
+    let output = minecraft_server_get(["list"])?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     msg.channel_id

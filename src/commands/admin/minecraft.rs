@@ -20,8 +20,8 @@ struct Minecraft;
 #[usage("command 1 ; command 2 ; ...")]
 #[min_args(1)]
 async fn server_do(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    for command in args.rest().split(";") {
-        let output = minecraft_server_get(&[command.trim()])?;
+    for command in args.rest().split(';') {
+        let output = minecraft_server_get([command.trim()])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
         msg.channel_id

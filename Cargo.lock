@@ -150,9 +150,9 @@ dependencies = [
 
 [[package]]
 name = "command_attr"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8862b532587a5efe6f20a750a0d01f390111f3570870581c13374024affc46dc"
+checksum = "4d999d4e7731150ee14aee8f619c7a9aa9a4385bca0606c4fa95aa2f36a05d9a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1040,6 +1040,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
+
+[[package]]
 name = "ryu"
 version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1159,9 +1165,9 @@ dependencies = [
 
 [[package]]
 name = "serenity"
-version = "0.11.2"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "246008828de84241202b092316c4729da36c3edd8f0c17ed6893df8e414c3c9b"
+checksum = "82fd5e7b5858ad96e99d440138f34f5b98e1b959ebcd3a1036203b30e78eb788"
 dependencies = [
  "async-trait",
  "async-tungstenite",
@@ -1180,6 +1186,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "reqwest",
+ "rustversion",
  "serde",
  "serde-value",
  "serde_json",

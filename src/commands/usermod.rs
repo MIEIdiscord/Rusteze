@@ -88,7 +88,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                     .fields(
                         config
                             .user_groups()
-                            .filter_map(|(r, d)| guild.roles.get(&r).map(|r| (&r.name, d)))
+                            .filter_map(|(r, d)| guild.roles.get(r).map(|r| (&r.name, d)))
                             .map(|(r, d)| (r, d, true)),
                     )
             })
@@ -116,7 +116,7 @@ pub async fn role_by_name(
 ) -> Result<Option<RoleId>, CommandError> {
     let finder = aho_corasick::AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
-        .build(&[role])?;
+        .build([role])?;
     Ok(guild_id
         .to_partial_guild(ctx)
         .await?
