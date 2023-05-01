@@ -98,10 +98,10 @@ impl EventHandler for Handler {
         let share_map = ctx.data.read().await;
         let config = get!(> share_map, Config, read);
         if let Some(ch) = config.log_channel() {
-            let nick = member_data
+            let (nick, avatar) = member_data
                 .as_ref()
-                .and_then(|m| m.nick.as_deref())
-                .unwrap_or("None");
+                .map(|m| (m.nick.as_deref().unwrap_or("None"), m.face()))
+                .unwrap_or_else(|| ("None", user.face()));
             ch.send_message(&ctx, |m| {
                 m.embed(|e| {
                     e.title("User left the server")
@@ -109,11 +109,7 @@ impl EventHandler for Handler {
                             "**Name:**      {}\n**Nickname:** {}",
                             user.name, nick
                         ))
-                        .thumbnail(
-                            user.avatar_url()
-                                .as_deref()
-                                .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
-                        )
+                        .thumbnail(avatar)
                 })
             })
             .await
