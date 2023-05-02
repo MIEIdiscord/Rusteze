@@ -6,6 +6,8 @@ use tokio::sync::Mutex;
 
 daemons::monomorphise!(CacheAndHttp);
 
-impl TypeMapKey for DaemonManager {
+pub struct DaemonManagerKey;
+
+impl TypeMapKey for DaemonManagerKey {
     type Value = Arc<Mutex<DaemonManager>>;
 }

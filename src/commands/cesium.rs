@@ -11,7 +11,6 @@ use serenity::{
     model::{
         channel::{ChannelType, Message, PermissionOverwrite, PermissionOverwriteType},
         id::{ChannelId, GuildId, RoleId, UserId},
-        misc::Mentionable,
         permissions::Permissions,
     },
     prelude::*,
@@ -51,14 +50,12 @@ pub async fn is_mod_or_cesium(
     if [MENTOR_ROLE, CESIUM_ROLE, MODS_ROLE]
         .iter()
         .any(|r| m.roles.contains(r))
-    {
-        Ok(())
-    } else if gid
-        .member(&ctx, msg.author.id)
-        .and_then(|u| async move { u.permissions(&ctx).await })
-        .and_then(|p| async move { Ok(p.administrator()) })
-        .await
-        .unwrap_or(false)
+        || gid
+            .member(&ctx, msg.author.id)
+            .and_then(|u| async move { u.permissions(ctx) })
+            .and_then(|p| async move { Ok(p.administrator()) })
+            .await
+            .unwrap_or(false)
     {
         Ok(())
     } else {
@@ -107,28 +104,28 @@ impl ChannelMapping {
             .iter()
             .map(|&u| PermissionOverwrite {
                 kind: PermissionOverwriteType::Member(u),
-                allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),
             })
             .chain(once(PermissionOverwrite {
                 kind: PermissionOverwriteType::Role(CESIUM_ROLE),
-                allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),
             }))
             .chain(once(PermissionOverwrite {
                 kind: PermissionOverwriteType::Role(MODS_ROLE),
-                allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),
             }))
             .chain(once(PermissionOverwrite {
                 kind: PermissionOverwriteType::Role(MENTOR_ROLE),
-                allow: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),
             }))
             .chain(once(PermissionOverwrite {
                 kind: PermissionOverwriteType::Role(RoleId(guild_id.0)),
                 allow: Permissions::empty(),
-                deny: Permissions::READ_MESSAGES | Permissions { bits: 0x00000400 },
+                deny: Permissions::VIEW_CHANNEL,
             }))
             .collect();
         let text = guild_id
@@ -137,7 +134,7 @@ impl ChannelMapping {
                     .name(format!("mentor-channel-{}", self.last_number))
                     .kind(ChannelType::Text)
                     .category(CESIUM_CATEGORY)
-                    .permissions(users.iter().map(|p| p.clone()))
+                    .permissions(users.iter().cloned())
             })
             .await?;
         let voice = guild_id
@@ -175,7 +172,7 @@ Bem vindos aos vosso canto privado! {}",
             .to_channel(ctx)
             .await?
             .guild()
-            .filter(|ch| ch.category_id == Some(CESIUM_CATEGORY))
+            .filter(|ch| ch.parent_id == Some(CESIUM_CATEGORY))
             .and_then(|_| self.channels.get(&channel_id))
             .ok_or("Invalid channel")?;
         channel_id.delete(ctx).await?;
@@ -234,7 +231,7 @@ or mention the channel as a second parameter",
         &ctx,
         &PermissionOverwrite {
             kind: PermissionOverwriteType::Member(user),
-            allow: Permissions::READ_MESSAGES,
+            allow: Permissions::VIEW_CHANNEL,
             deny: Permissions::empty(),
         },
     )
@@ -244,7 +241,7 @@ or mention the channel as a second parameter",
             &ctx,
             &PermissionOverwrite {
                 kind: PermissionOverwriteType::Member(user),
-                allow: Permissions::READ_MESSAGES,
+                allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),
             },
         )

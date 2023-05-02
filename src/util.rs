@@ -50,7 +50,7 @@ impl From<&serenity::CacheAndHttp> for Endpoint {
 
 impl CacheHttp for Endpoint {
     fn http(&self) -> &Http {
-        &*self.http
+        &self.http
     }
 
     fn cache(&self) -> Option<&Arc<Cache>> {
@@ -60,7 +60,7 @@ impl CacheHttp for Endpoint {
 
 impl AsRef<Http> for Endpoint {
     fn as_ref(&self) -> &Http {
-        &*self.http
+        &self.http
     }
 }
 

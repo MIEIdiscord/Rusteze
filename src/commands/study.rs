@@ -35,9 +35,9 @@ pub async fn study(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let roles = get!(> trash, MiEI, read);
     let (ids, names) = parse_study_args(
         args.rest(),
-        &*roles,
+        &roles,
         &msg.author,
-        &ctx,
+        ctx,
         msg.guild_id.ok_or("Guild id not found")?,
         true,
     )
@@ -69,9 +69,9 @@ pub async fn unstudy(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
     let roles = get!(> trash, MiEI, read);
     let (ids, names) = parse_study_args(
         args.rest(),
-        &*roles,
+        &roles,
         &msg.author,
-        &ctx,
+        ctx,
         msg.guild_id.ok_or("Guild id not found")?,
         false,
     )
@@ -132,7 +132,10 @@ async fn parse_study_args<'args, 'miei: 'args>(
         if let Some(wild) = c.name("wildcard") {
             stream::iter(roles.wildcard_roles(wild.as_str()))
                 .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
-                .for_each(|x| future::ready(push(x)))
+                .for_each(|x| {
+                    push(x);
+                    future::ready(())
+                })
                 .await;
         } else if let Some(course) = c.name("course") {
             stream::iter(
@@ -141,28 +144,34 @@ async fn parse_study_args<'args, 'miei: 'args>(
                     .map(|r| (course.as_str(), r)),
             )
             .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
-            .for_each(|x| future::ready(push(x)))
+            .for_each(|x| {
+                push(x);
+                future::ready(())
+            })
             .await;
-        } else {
-            if let Some(year) = c.name("year") {
-                match c.name("sem") {
-                    Some(sem) => {
-                        if let Some(rs) =
-                            roles.roles_by_year_and_semester(year.as_str(), sem.as_str())
-                        {
-                            stream::iter(rs)
-                                .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
-                                .for_each(|x| future::ready(push(x)))
-                                .await;
-                        }
+        } else if let Some(year) = c.name("year") {
+            match c.name("sem") {
+                Some(sem) => {
+                    if let Some(rs) = roles.roles_by_year_and_semester(year.as_str(), sem.as_str())
+                    {
+                        stream::iter(rs)
+                            .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+                            .for_each(|x| {
+                                push(x);
+                                future::ready(())
+                            })
+                            .await;
                     }
-                    None => {
-                        if let Some(rs) = roles.roles_by_year(year.as_str()) {
-                            stream::iter(rs)
-                                .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
-                                .for_each(|x| future::ready(push(x)))
-                                .await;
-                        }
+                }
+                None => {
+                    if let Some(rs) = roles.roles_by_year(year.as_str()) {
+                        stream::iter(rs)
+                            .filter(|r| not_has_role(ctx, guild_id, r.1, user, filter))
+                            .for_each(|x| {
+                                push(x);
+                                future::ready(())
+                            })
+                            .await;
                     }
                 }
             }
@@ -190,7 +199,7 @@ pub async fn mk(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let (Some(y), Some(s), Some(g)) = (year, semester, msg.guild_id) {
         let mut new_roles = Vec::new();
         for course in args {
-            if let Some(c) = roles.create_role(ctx, &y, &s, course, g).await? {
+            if let Some(c) = roles.create_role(ctx, y, s, course, g).await? {
                 new_roles.push(c);
             }
         }
@@ -220,7 +229,7 @@ pub async fn rm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(guild) = msg.guild_id {
         let mut rm_roles = Vec::new();
         for course in args.raw() {
-            if let Ok(c) = roles.remove_role(course, &ctx, guild).await {
+            if let Ok(c) = roles.remove_role(course, ctx, guild).await {
                 rm_roles.push(c);
             }
         }
@@ -313,7 +322,7 @@ pub async fn deprecate(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     if let Some(g) = msg.guild_id {
         let mut deprecated_courses = Vec::new();
         for course in args.raw() {
-            if let Ok(c) = roles.deprecate_course(course, &ctx, g).await {
+            if let Ok(c) = roles.deprecate_course(course, ctx, g).await {
                 deprecated_courses.push(c);
             }
         }
@@ -376,7 +385,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                                     .entry(format!("{}ano{}semestre", c.year, c.semester))
                                     .or_insert_with(String::new);
                                 s.push_str(c.channel);
-                                s.push_str("\n");
+                                s.push('\n');
                                 acc
                             })
                             .iter()

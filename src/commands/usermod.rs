@@ -2,7 +2,7 @@ use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
         macros::{command, group},
-        Args, CommandResult,
+        Args, CommandResult, CommandError,
     },
     model::{
         channel::Message,
@@ -88,7 +88,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                     .fields(
                         config
                             .user_groups()
-                            .filter_map(|(r, d)| guild.roles.get(&r).map(|r| (&r.name, d)))
+                            .filter_map(|(r, d)| guild.roles.get(r).map(|r| (&r.name, d)))
                             .map(|(r, d)| (r, d, true)),
                     )
             })
@@ -113,10 +113,10 @@ pub async fn role_by_name(
     ctx: &Context,
     guild_id: GuildId,
     role: &str,
-) -> Result<Option<RoleId>, serenity::Error> {
+) -> Result<Option<RoleId>, CommandError> {
     let finder = aho_corasick::AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
-        .build(&[role]);
+        .build([role])?;
     Ok(guild_id
         .to_partial_guild(ctx)
         .await?
