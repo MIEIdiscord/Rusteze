@@ -106,16 +106,6 @@ pub async fn whitelist(ctx: &Context, msg: &Message, args: Args) -> CommandResul
     }
 }
 
-fn parse_user_tag(s: &str) -> Option<(&str, u16)> {
-    let pound_sign = s.find('#')?;
-    let name = &s[..pound_sign];
-    let discrim = s[(pound_sign + 1)..].parse::<u16>().ok()?;
-    if discrim > 9999 {
-        return None;
-    }
-    Some((name, discrim))
-}
-
 #[command]
 #[description("Sets the users that are now cesium")]
 #[usage("[new line separated list of users]")]
@@ -128,16 +118,15 @@ pub async fn tomada_de_posse(ctx: &Context, msg: &Message, args: Args) -> Comman
         .rest()
         .split('\n')
         .filter(|x| !x.is_empty())
-        .map(|x| parse_user_tag(x).ok_or(x))
-        .collect::<Result<HashSet<(&str, u16)>, &str>>()
-        .map_err(|e| format!("Parse error on user: {:?}", e))?;
+        .map(|x| x.trim())
+        .collect::<HashSet<&str>>();
 
     guild_id
         .members_iter(ctx)
         .try_for_each(|mut m| async move {
             match (
                 m.roles.contains(&CESIUM_ROLE),
-                users.contains(&(&m.user.name, m.user.discriminator)),
+                users.contains(m.user.name.as_str()),
             ) {
                 (true, false) => {
                     m.remove_role(ctx, CESIUM_ROLE).await?;
