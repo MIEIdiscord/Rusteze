@@ -283,17 +283,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "daemons"
-version = "0.9.0"
-source = "git+https://github.com/mendess/daemons#9aff691c5587626fe048482510ca75c4ae7b11f7"
-dependencies = [
- "async-trait",
- "futures",
- "log",
- "tokio",
-]
-
-[[package]]
 name = "darling"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1285,7 +1274,6 @@ dependencies = [
  "aho-corasick",
  "anyhow",
  "chrono",
- "daemons",
  "futures",
  "itertools",
  "once_cell",
@@ -1792,7 +1780,6 @@ dependencies = [
  "slab",
  "socket2 0.6.0",
  "tokio-macros",
- "tracing",
  "windows-sys 0.59.0",
 ]
 

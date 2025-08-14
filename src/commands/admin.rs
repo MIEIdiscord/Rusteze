@@ -1,10 +1,8 @@
 mod channels;
-mod daemons;
 mod greeting_channels;
 mod log_channel;
 mod user_groups;
 
-use self::daemons::*;
 use super::cesium::CESIUM_ROLE;
 use channels::*;
 use futures::stream::TryStreamExt;
@@ -26,7 +24,7 @@ use user_groups::*;
 #[commands(edit, say, tomada_de_posse)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, Daemons, UserGroups)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, UserGroups)]
 struct Admin;
 
 #[command]
