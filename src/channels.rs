@@ -15,7 +15,7 @@ use serenity::{
 };
 use std::{collections::HashMap, fs::File, io, sync::Arc};
 
-const COURSES: &str = "courses.json";
+const COURSES: &str = "data/courses.json";
 const DEPRECATED_CATEGORY: ChannelId = ChannelId::new(618553779192856577);
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]

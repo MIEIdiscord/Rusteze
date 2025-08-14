@@ -1,6 +1,6 @@
 use crate::util::SendSyncError as Error;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use serenity::{
     model::id::{ChannelId, RoleId},
     prelude::{RwLock, TypeMapKey},
@@ -29,7 +29,7 @@ pub struct Config {
     mute_role: Option<RoleId>,
 }
 
-const CONFIG: &str = "config.json";
+const CONFIG: &str = "data/config.json";
 
 impl Config {
     fn serialize(&self) -> Result<(), Error> {

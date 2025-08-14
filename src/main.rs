@@ -12,7 +12,7 @@ use std::{fs, sync::Arc};
 
 #[tokio::main]
 async fn main() {
-    let token = match fs::read_to_string("auth") {
+    let token = match fs::read_to_string("data/auth") {
         Ok(token) => token,
         Err(e) => {
             log!("Could not open auth file");
