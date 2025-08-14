@@ -1,3 +1,5 @@
+//! Channels where the bot will respond to commands
+
 use crate::{config::Config, get};
 use itertools::Itertools;
 use serenity::{
