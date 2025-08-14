@@ -1,11 +1,11 @@
 #![deny(unused_must_use)]
+#![deny(unused_crate_dependencies)]
 #![expect(deprecated)] // serenity standard framework is deprecated
 
 pub mod channels;
 pub mod commands;
 pub mod config;
 pub mod daemons;
-pub mod delayed_tasks;
 pub mod util;
 
 pub use self::daemons::{DaemonManager, DaemonManagerKey};

@@ -5,8 +5,6 @@ use rusteze::{
     channels::{MiEI, read_courses},
     commands::{admin::*, cesium::*, misc::*, study::*, usermod::*},
     config::Config,
-    delayed_tasks::TaskSender,
-    util::Endpoint,
     *,
 };
 use serenity::{all::standard::Configuration, framework::standard::StandardFramework, prelude::*};
@@ -52,13 +50,6 @@ async fn main() {
         client_builder = client_builder.type_map_insert::<UpdateNotify>(Arc::new(id))
     }
     let mut client = client_builder.await.expect("failed to start client");
-    {
-        let mut tasks_data = TypeMap::new();
-        tasks_data.insert::<Endpoint>(Endpoint::from(&(client.cache.clone(), client.http.clone())));
-        client.data.write().await.insert::<TaskSender>(
-            delayed_tasks::start(tasks_data).expect("Couldn't start delayed tasks"),
-        );
-    }
     if let Err(why) = client.start().await {
         log!("Client error: {:?}", why);
     }
