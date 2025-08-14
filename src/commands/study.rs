@@ -381,9 +381,9 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                         roles
                             .iter()
                             .fold(BTreeMap::new(), |mut acc, c| {
-                                let s = acc
+                                let s: &mut String = acc
                                     .entry(format!("{}ano{}semestre", c.year, c.semester))
-                                    .or_insert_with(String::new);
+                                    .or_default();
                                 s.push_str(c.channel);
                                 s.push('\n');
                                 acc

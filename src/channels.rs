@@ -265,7 +265,8 @@ impl MiEI {
     fn get_year_semester_names(&self, role_name: &str) -> Option<(String, String)> {
         let upper_role_name = role_name.to_uppercase();
         self.courses.iter().find_map(|(key, x)| {
-            x.get_semester_name(&upper_role_name).map(|sem| (key.clone(), sem))
+            x.get_semester_name(&upper_role_name)
+                .map(|sem| (key.clone(), sem))
         })
     }
 
@@ -273,7 +274,7 @@ impl MiEI {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Channel> {
+    pub fn iter(&'_ self) -> impl Iterator<Item = Channel<'_>> {
         self.courses.iter().flat_map(|(year, sems)| {
             sems.courses.iter().flat_map(move |(semester, courses)| {
                 courses.courses.keys().map(move |channel| Channel {
@@ -349,7 +350,7 @@ impl Year {
 
     fn get_semester_name(&self, role_name: &str) -> Option<String> {
         self.courses.iter().find_map(|(key, x)| {
-            if x.courses.get(role_name).is_some() {
+            if x.courses.contains_key(role_name) {
                 Some(key.clone())
             } else {
                 None
