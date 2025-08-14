@@ -2,6 +2,7 @@ use crate::util::SendSyncError;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serenity::{
+    all::{CreateChannel, EditChannel, EditRole},
     model::{
         channel::{
             Channel as SerenityChannel, ChannelType, PermissionOverwrite,
@@ -15,7 +16,7 @@ use serenity::{
 use std::{collections::HashMap, fs::File, io, sync::Arc};
 
 const COURSES: &str = "courses.json";
-const DEPRECATED_CATEGORY: ChannelId = ChannelId(618553779192856577);
+const DEPRECATED_CATEGORY: ChannelId = ChannelId::new(618553779192856577);
 
 #[derive(Serialize, Deserialize, Clone, Default, Debug, PartialEq, Eq)]
 pub struct MiEI {
@@ -32,18 +33,20 @@ async fn create_channels(
     category_id: ChannelId,
 ) -> serenity::Result<(ChannelId, ChannelId)> {
     let duvidas = guild
-        .create_channel(&ctx, |c| {
-            c.name(format!("duvidas-{}", name))
+        .create_channel(
+            &ctx,
+            CreateChannel::new(format!("duvidas-{}", name))
                 .kind(ChannelType::Text)
-                .category(category_id)
-        })
+                .category(category_id),
+        )
         .await?;
     let anexos = guild
-        .create_channel(&ctx, |c| {
-            c.name(format!("anexos-{}", name))
+        .create_channel(
+            &ctx,
+            CreateChannel::new(format!("anexos-{}", name))
                 .kind(ChannelType::Text)
-                .category(category_id)
-        })
+                .category(category_id),
+        )
         .await?;
     Ok((duvidas.id, anexos.id))
 }
@@ -132,19 +135,21 @@ impl MiEI {
             Ok(None)
         } else {
             let role = guild
-                .create_role(&ctx.http, |z| {
-                    z.hoist(false)
+                .create_role(
+                    &ctx.http,
+                    EditRole::new()
+                        .hoist(false)
                         .mentionable(true)
                         .name(&upper_course)
-                        .colour(MiEI::role_color(year))
-                })
+                        .colour(MiEI::role_color(year)),
+                )
                 .await
                 .unwrap();
             let perms = vec![
                 PermissionOverwrite {
                     allow: Permissions::empty(),
                     deny: Permissions::VIEW_CHANNEL,
-                    kind: Role(guild.as_u64().to_owned().into()),
+                    kind: Role(guild.get().into()),
                 },
                 PermissionOverwrite {
                     allow: Permissions::VIEW_CHANNEL,
@@ -158,11 +163,12 @@ impl MiEI {
                 },
             ];
             let category = guild
-                .create_channel(&ctx, |c| {
-                    c.name(add_category_emoji(year, &upper_course))
+                .create_channel(
+                    &ctx,
+                    CreateChannel::new(add_category_emoji(year, &upper_course))
                         .kind(ChannelType::Category)
-                        .permissions(perms)
-                })
+                        .permissions(perms),
+                )
                 .await
                 .unwrap();
             let (duvidas_id, anexos_id) =
@@ -220,9 +226,11 @@ impl MiEI {
         } else if let Some(old_course) = self.courses.values_mut().find_map(|x| x.pop_role(course))
         {
             guild
-                .edit_role(&ctx.http, old_course.role, |r| {
-                    r.colour(MiEI::role_color(new_year))
-                })
+                .edit_role(
+                    &ctx.http,
+                    old_course.role,
+                    EditRole::new().colour(MiEI::role_color(new_year)),
+                )
                 .await?;
             if let Some(n) = upper_new_name {
                 old_course.rename(&n, new_year, ctx, guild).await?;
@@ -411,23 +419,33 @@ impl Course {
     ) -> serenity::Result<()> {
         for channel in &self.channels {
             match channel.to_channel(&ctx.http).await? {
-                SerenityChannel::Guild(mut channel) => {
-                    let prefix_index = channel.name.find('-').unwrap_or(channel.name.len());
-                    let prefix = &channel.name[..prefix_index].to_string();
-                    channel
-                        .edit(&ctx.http, |c| c.name(format!("{}-{}", prefix, new_name)))
-                        .await?;
-                }
-                SerenityChannel::Category(mut channel) => {
-                    channel
-                        .edit(&ctx.http, |c| c.name(add_category_emoji(year, new_name)))
-                        .await?;
-                }
+                SerenityChannel::Guild(mut channel) => match channel.kind {
+                    ChannelType::Text => {
+                        let prefix_index = channel.name.find('-').unwrap_or(channel.name.len());
+                        let prefix = &channel.name[..prefix_index].to_string();
+                        channel
+                            .edit(
+                                &ctx.http,
+                                EditChannel::new().name(format!("{}-{}", prefix, new_name)),
+                            )
+                            .await?;
+                    }
+                    ChannelType::Category => {
+                        channel
+                            .edit(
+                                &ctx.http,
+                                EditChannel::new().name(add_category_emoji(year, new_name)),
+                            )
+                            .await?;
+                    }
+                    _ => {}
+                },
+                SerenityChannel::Private(_) => {}
                 _ => {}
             }
         }
         guild
-            .edit_role(&ctx.http, self.role, |r| r.name(new_name))
+            .edit_role(&ctx.http, self.role, EditRole::new().name(new_name))
             .await?;
 
         Ok(())
@@ -441,47 +459,51 @@ impl Course {
             .ok_or(anyhow!("No such role"))?
             .clone();
         let new_role = guild
-            .create_role(&ctx.http, |r| {
-                r.name(&role.name)
+            .create_role(
+                &ctx.http,
+                EditRole::new()
+                    .name(&role.name)
                     .hoist(role.hoist)
                     .mentionable(false)
-                    .permissions(role.permissions)
-            })
+                    .permissions(role.permissions),
+            )
             .await?;
         role.delete(&ctx.http).await?;
         self.role = new_role.id;
 
         for channel in &mut self.channels {
-            match channel.to_channel(&ctx.http).await? {
-                SerenityChannel::Guild(mut channel) => {
-                    channel
-                        .id
-                        .say(
-                            &ctx.http,
-                            "*está cadeira já não está entre nós, descansa em paz cadeira, \
-                                    a tua memória será para sempre preservada \
-                                    ||num datacenter qualquer do discord||*",
-                        )
-                        .await?;
-                    channel
-                        .create_permission(
-                            &ctx.http,
-                            &PermissionOverwrite {
-                                allow: Permissions::VIEW_CHANNEL,
-                                deny: Permissions::SEND_MESSAGES,
-                                kind: Role(self.role),
-                            },
-                        )
-                        .await?;
-                    channel
-                        .edit(&ctx.http, |c| c.category(DEPRECATED_CATEGORY))
-                        .await?;
+            if let SerenityChannel::Guild(mut gchannel) = channel.to_channel(&ctx.http).await? {
+                match gchannel.kind {
+                    ChannelType::Text => {
+                        gchannel
+                            .id
+                            .say(
+                                &ctx.http,
+                                "*está cadeira já não está entre nós, descansa em paz cadeira, \
+                                a tua memória será para sempre preservada \
+                                ||num datacenter qualquer do discord||*",
+                            )
+                            .await?;
+                        gchannel
+                            .create_permission(
+                                &ctx.http,
+                                PermissionOverwrite {
+                                    allow: Permissions::VIEW_CHANNEL,
+                                    deny: Permissions::SEND_MESSAGES,
+                                    kind: Role(self.role),
+                                },
+                            )
+                            .await?;
+                        gchannel
+                            .edit(&ctx.http, EditChannel::new().category(DEPRECATED_CATEGORY))
+                            .await?;
+                    }
+                    ChannelType::Category => {
+                        gchannel.delete(&ctx.http).await?;
+                        *channel = DEPRECATED_CATEGORY;
+                    }
+                    _ => {}
                 }
-                SerenityChannel::Category(category) => {
-                    category.delete(&ctx.http).await?;
-                    *channel = DEPRECATED_CATEGORY;
-                }
-                _ => {}
             }
         }
         Ok(())

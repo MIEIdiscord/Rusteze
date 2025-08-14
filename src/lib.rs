@@ -1,4 +1,5 @@
 #![deny(unused_must_use)]
+#![expect(deprecated)] // serenity standard framework is deprecated
 
 pub mod channels;
 pub mod commands;
@@ -12,20 +13,19 @@ use crate::config::Config;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serenity::{
+    all::{ActivityData, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage},
     framework::standard::{
-        help_commands,
+        Args, CommandGroup, CommandResult, DispatchError, HelpOptions, help_commands,
         macros::{help, hook},
-        Args, CommandGroup, CommandResult, DispatchError, HelpOptions,
     },
     model::{
         channel::Message,
-        gateway::{Activity, Ready},
+        gateway::Ready,
         guild::Member,
         id::{ChannelId, GuildId, UserId},
         user::{OnlineStatus, User},
     },
     prelude::*,
-    utils::Colour,
 };
 use std::{collections::HashSet, sync::Arc};
 
@@ -51,12 +51,11 @@ pub struct Handler;
 #[serenity::async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, _ready: Ready) {
-        ctx.set_presence(Some(Activity::playing("$man")), OnlineStatus::Online)
-            .await;
+        ctx.set_presence(Some(ActivityData::playing("$man")), OnlineStatus::Online);
         crate::log!("Up and running");
         if let Some(id) = ctx.data.write().await.remove::<UpdateNotify>() {
             ChannelId::from(*id)
-                .send_message(&ctx, |m| m.content("Rebooted successfully!"))
+                .send_message(&ctx, CreateMessage::new().content("Rebooted successfully!"))
                 .await
                 .expect("Couldn't send update notification");
         }
@@ -70,21 +69,16 @@ impl EventHandler for Handler {
         {
             let user = new_member.user.id;
             let guild = new_member.guild_id.to_partial_guild(&ctx).await;
-            ch.send_message(&ctx, |m| {
-                m.content(user.mention());
-                m.embed(|e| {
-                    e.title("Bem-vindo(a) ao servidor de MIEI!");
-                    e.description(greet_message);
-                    e.thumbnail(guild.map(|u|u.icon_url().expect("No Guild Image available")).unwrap());
-                    e.colour(Colour::from_rgb(0, 0, 0));
-                    e.footer( |f| {
-                        f.text("Se tiveres alguma dúvida sobre o bot podes usar o comando $man para saberes o que podes fazer.");
-                        f
-                    });
-                    e
-                });
-                m
-            }).await.map_err(|e| log!("Couldn't greet new user {}: {:?}", user, e)).ok();
+            ch.send_message(&ctx, CreateMessage::new()
+                .content(format!("{}", user.mention()))
+                .embed(CreateEmbed::new()
+                    .title("Bem-vindo(a) ao servidor de MIEI!")
+                    .description(greet_message)
+                    .thumbnail(guild.map(|u|u.icon_url().expect("No Guild Image available")).unwrap())
+                    .colour(Colour::from_rgb(0, 0, 0))
+                    .footer(CreateEmbedFooter::new("Se tiveres alguma dúvida sobre o bot podes usar o comando $man para saberes o que podes fazer."))
+                )
+            ).await.map_err(|e| log!("Couldn't greet new user {}: {:?}", user, e)).ok();
         }
     }
 
@@ -102,16 +96,18 @@ impl EventHandler for Handler {
                 .as_ref()
                 .map(|m| (m.nick.as_deref().unwrap_or("None"), m.face()))
                 .unwrap_or_else(|| ("None", user.face()));
-            ch.send_message(&ctx, |m| {
-                m.embed(|e| {
-                    e.title("User left the server")
+            ch.send_message(
+                &ctx,
+                CreateMessage::new().embed(
+                    CreateEmbed::new()
+                        .title("User left the server")
                         .description(format!(
                             "**Name:**      {}\n**Nickname:** {}",
                             user.name, nick
                         ))
-                        .thumbnail(avatar)
-                })
-            })
+                        .thumbnail(avatar),
+                ),
+            )
             .await
             .map_err(|e| {
                 log!(
@@ -132,11 +128,9 @@ impl EventHandler for Handler {
 
         if INVITE.is_match(&msg.content) {
             let link = INVITE.find(&msg.content).unwrap().as_str();
-            if msg
-                .guild(&ctx)
-                .unwrap()
-                .invites(&ctx)
-                .await
+            let guild = msg.guild(&ctx.cache).unwrap().clone();
+            let invites = guild.invites(&ctx).await;
+            if invites
                 .unwrap_or_default()
                 .iter()
                 .map(|i| i.url())
@@ -145,7 +139,10 @@ impl EventHandler for Handler {
                 msg.delete(&ctx).await.unwrap();
 
                 msg.author
-                    .direct_message(&ctx, |m| m.content("Bad person. No share inviterinos!"))
+                    .direct_message(
+                        &ctx,
+                        CreateMessage::new().content("Bad person. No share inviterinos!"),
+                    )
                     .await
                     .unwrap();
 
@@ -158,9 +155,11 @@ impl EventHandler for Handler {
                         None => "in DM".to_owned(),
                     };
 
-                    ch.send_message(&ctx, |m| {
-                        m.embed(|e| {
-                            e.title("User sent a external server invite")
+                    ch.send_message(
+                        &ctx,
+                        CreateMessage::new().embed(
+                            CreateEmbed::new()
+                                .title("User sent a external server invite")
                                 .description(format!(
                                     "**Name:**   {}\n**Channel** {}\n**Link:**   {}",
                                     msg.author.name, channel_name, link
@@ -170,9 +169,9 @@ impl EventHandler for Handler {
                                         .avatar_url()
                                         .as_deref()
                                         .unwrap_or("https://i.imgur.com/lKmW0tc.png"),
-                                )
-                        })
-                    })
+                                ),
+                        ),
+                    )
                     .await
                     .map_err(|e| {
                         log!(
@@ -225,7 +224,7 @@ pub async fn after_hook(ctx: &Context, msg: &Message, cmd_name: &str, error: Com
             msg.author,
         ),
         Err(why) => {
-            let _ = msg.channel_id.say(ctx, &why).await;
+            let _ = msg.channel_id.say(ctx, why.to_string()).await;
             log!(
                 "Command '{}' for user '{}::{}' failed because {:?}",
                 cmd_name,

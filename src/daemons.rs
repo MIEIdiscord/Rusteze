@@ -1,10 +1,13 @@
 pub mod minecraft;
 
-use serenity::{prelude::TypeMapKey, CacheAndHttp};
+use serenity::{
+    all::{Cache, Http},
+    prelude::TypeMapKey,
+};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-daemons::monomorphise!(CacheAndHttp);
+daemons::monomorphise!((Arc<Cache>, Arc<Http>));
 
 pub struct DaemonManagerKey;
 

@@ -38,11 +38,11 @@ pub struct Endpoint {
     cache: Arc<Cache>,
 }
 
-impl From<&serenity::CacheAndHttp> for Endpoint {
-    fn from(cache_and_http: &serenity::CacheAndHttp) -> Self {
+impl From<&(Arc<Cache>, Arc<Http>)> for Endpoint {
+    fn from(cache_and_http: &(Arc<Cache>, Arc<Http>)) -> Self {
         Self {
-            http: cache_and_http.http.clone(),
-            cache: cache_and_http.cache.clone(),
+            http: cache_and_http.1.clone(),
+            cache: cache_and_http.0.clone(),
         }
     }
 }

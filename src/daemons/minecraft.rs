@@ -2,9 +2,9 @@ use crate::util::minecraft_server_get;
 use daemons::{ControlFlow, Daemon};
 use serde::{Deserialize, Serialize};
 use serenity::{
+    all::Http,
     model::id::{GuildId, UserId},
     prelude::{Mutex, TypeMapKey},
-    CacheAndHttp,
 };
 use std::{
     collections::HashMap,
@@ -93,7 +93,7 @@ impl Display for Color {
 
 #[serenity::async_trait]
 impl Daemon<true> for Minecraft {
-    type Data = CacheAndHttp;
+    type Data = (Arc<serenity::cache::Cache>, Arc<Http>);
     async fn name(&self) -> String {
         String::from("Minecraft colours")
     }
@@ -103,6 +103,7 @@ impl Daemon<true> for Minecraft {
     }
 
     async fn run(&mut self, cache_http: &Self::Data) -> ControlFlow {
+        let cache_http = (&cache_http.0, &*cache_http.1);
         let guild_id = match self.guild_id {
             Some(g) => g,
             None => return ControlFlow::CONTINUE,
@@ -143,7 +144,7 @@ impl Daemon<true> for Minecraft {
                                 return ControlFlow::CONTINUE;
                             }
                         };
-                        let guild = match guild_id.to_partial_guild(&cache_http.http).await {
+                        let guild = match guild_id.to_partial_guild(cache_http).await {
                             Ok(g) => g,
                             Err(e) => {
                                 crate::log!("Can't find partial guild from id {}: {}", guild_id, e);
