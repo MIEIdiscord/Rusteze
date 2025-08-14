@@ -14,10 +14,7 @@ use crate::{
 };
 use channels::*;
 use chrono::{DateTime, Duration, Utc};
-use futures::{
-    future::{self, TryFutureExt},
-    stream::{StreamExt, TryStreamExt},
-};
+use futures::{future::TryFutureExt, stream::TryStreamExt};
 use greeting_channels::*;
 use log_channel::*;
 use serde::{Deserialize, Serialize};
@@ -37,14 +34,7 @@ use std::{any::Any, collections::HashSet, str};
 use user_groups::*;
 
 #[group]
-#[commands(
-    member_count,
-    edit,
-    say,
-    mute,
-    set_mute_role,
-    tomada_de_posse
-)]
+#[commands(edit, say, mute, set_mute_role, tomada_de_posse)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
 #[sub_groups(Channels, GreetingChannels, LogChannel, Daemons, UserGroups)]
@@ -112,26 +102,6 @@ pub async fn edit(ctx: &Context, _msg: &Message, mut args: Args) -> CommandResul
     let mut message = channel_id.message(&ctx.http, msg_id).await?;
     message
         .edit(&ctx, EditMessage::new().content(args.rest()))
-        .await?;
-    Ok(())
-}
-
-#[command]
-#[description("Count the number of members with a role")]
-#[usage("#role_mention")]
-#[min_args(1)]
-pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let role = &args.single::<RoleId>()?;
-    let member_count = msg
-        .guild_id
-        .ok_or_else(|| String::from("Not in a guild"))?
-        .members_iter(&ctx)
-        .filter_map(|x| future::ready(x.ok()))
-        .filter(|m| future::ready(m.roles.contains(role)))
-        .fold(0_usize, |a, _| future::ready(a + 1))
-        .await;
-    msg.channel_id
-        .say(&ctx, format!("Role has {} members", member_count))
         .await?;
     Ok(())
 }
