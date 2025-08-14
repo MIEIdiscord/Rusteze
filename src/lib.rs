@@ -208,10 +208,7 @@ async fn my_help(
 
 #[hook]
 pub async fn before_hook(ctx: &Context, msg: &Message, _: &str) -> bool {
-    valid_channel(ctx, msg).await
-        || is_mc_cmd(ctx, msg).await
-        || is_admin(ctx, msg).await
-        || is_cesium_cmd(msg).await
+    valid_channel(ctx, msg).await || is_admin(ctx, msg).await || is_cesium_cmd(msg).await
 }
 
 #[hook]
@@ -287,17 +284,4 @@ pub async fn is_admin(ctx: &Context, msg: &Message) -> bool {
 
 pub async fn is_cesium_cmd(msg: &Message) -> bool {
     msg.content.split_whitespace().next() == Some("$cesium")
-}
-
-pub async fn is_mc_cmd(ctx: &Context, msg: &Message) -> bool {
-    msg.content
-        .trim()
-        .trim_start_matches('$')
-        .starts_with("online")
-        && msg
-            .channel_id
-            .name(&ctx)
-            .await
-            .map(|name| name == "minecraft")
-            .unwrap_or_default()
 }

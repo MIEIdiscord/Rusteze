@@ -1,5 +1,3 @@
-pub mod minecraft;
-
 use serenity::{
     all::{Cache, Http},
     prelude::TypeMapKey,
