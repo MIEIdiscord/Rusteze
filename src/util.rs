@@ -25,8 +25,7 @@ where
     if output.status.success() {
         Ok(output)
     } else {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
+        Err(io::Error::other(
             String::from_utf8_lossy(&output.stdout) + String::from_utf8_lossy(&output.stderr),
         ))
     }

@@ -27,8 +27,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::{
     framework::standard::{
-        macros::{command, group},
         Args, CommandResult,
+        macros::{command, group},
     },
     model::{
         channel::Message,
@@ -36,18 +36,13 @@ use serenity::{
     },
     prelude::*,
 };
-use std::{
-    any::Any, collections::HashSet, os::unix::process::CommandExt, process::Command as Fork, str,
-    time::Instant,
-};
+use std::{any::Any, collections::HashSet, process::Command as Fork, str};
 use user_groups::*;
 
 #[group]
 #[commands(
     member_count,
     edit,
-    update,
-    reboot,
     say,
     whitelist,
     mute,
@@ -146,119 +141,6 @@ pub async fn tomada_de_posse(ctx: &Context, msg: &Message, args: Args) -> Comman
         })
         .await?;
     Ok(())
-}
-
-#[command]
-#[description("Update the bot")]
-pub async fn update(ctx: &Context, msg: &Message) -> CommandResult {
-    static UPDATING: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-    let _ = match UPDATING.try_lock() {
-        Ok(guard) => guard,
-        Err(_) => return Err("Alreading updating".into()),
-    };
-    let check_msg = |mut m: Message| async move {
-        let new_msg = format!("{} :white_check_mark:", m.content);
-        m.edit(&ctx, |m| m.content(new_msg)).await
-    };
-    let message = msg.channel_id.say(&ctx, "Fetching...").await?;
-    Fork::new("git").arg("fetch").spawn()?.wait()?;
-    check_msg(message).await?;
-
-    let message = msg.channel_id.say(&ctx, "Checking remote...").await?;
-    let status = Fork::new("git")
-        .args(["rev-list", "--count", "master...master@{upstream}"])
-        .output()?;
-    check_msg(message).await?;
-
-    if 0 == String::from_utf8_lossy(&status.stdout)
-        .trim()
-        .parse::<i32>()?
-    {
-        return Err("No updates!".into());
-    }
-
-    let message = msg.channel_id.say(&ctx, "Pulling from remote...").await?;
-    let out = &Fork::new("git").arg("pull").output()?;
-    if !out.status.success() {
-        return Err(format!(
-            "Error pulling!
-```
-============= stdout =============
-{}
-============= stderr =============
-{}
-```",
-            str::from_utf8(&out.stdout)?,
-            str::from_utf8(&out.stderr)?
-        )
-        .into());
-    }
-    check_msg(message).await?;
-
-    let message = msg.channel_id.say(&ctx, "Compiling...").await?;
-    let start = Instant::now();
-    let out = &Fork::new("cargo")
-        .args(if cfg!(debug_assertions) {
-            &["build", "--quiet"][..]
-        } else {
-            &["build", "--quiet", "--release"][..]
-        })
-        .output()?;
-    if !out.status.success() {
-        return Err(format!(
-            "Build Error!
-```
-============= stderr =============
-{}
-```",
-            {
-                let s = str::from_utf8(&out.stderr)?;
-                &s[s.len().saturating_sub(1500)..]
-            }
-        )
-        .into());
-    }
-    check_msg(message).await?;
-    let elapsed = start.elapsed();
-    msg.channel_id
-        .say(
-            &ctx,
-            format!(
-                "Compiled in {}m{}s",
-                elapsed.as_secs() / 60,
-                elapsed.as_secs() % 60
-            ),
-        )
-        .await?;
-
-    reboot_bot(ctx, msg.channel_id).await
-}
-
-#[command]
-#[description("Reboot the bot")]
-#[usage("")]
-pub async fn reboot(ctx: &Context, msg: &Message) -> CommandResult {
-    reboot_bot(ctx, msg.channel_id).await
-}
-
-async fn reboot_bot(ctx: &Context, ch_id: ChannelId) -> CommandResult {
-    ch_id.say(ctx, "Rebooting...").await?;
-    std::env::set_var("RUST_BACKTRACE", "1");
-    let error = Fork::new("cargo")
-        .args([
-            "run",
-            if cfg!(debug_assertions) {
-                ""
-            } else {
-                "--release"
-            },
-            "--",
-            "-r",
-            &ch_id.to_string(),
-        ])
-        .exec();
-    std::env::remove_var("RUST_BACKTRACE");
-    Err(error.into())
 }
 
 #[command]

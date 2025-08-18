@@ -80,7 +80,10 @@ impl MiEI {
             .next()
     }
 
-    pub fn wildcard_roles(&self, wildcard: &str) -> impl Iterator<Item = (&str, RoleId)> {
+    pub fn wildcard_roles<'s>(
+        &'s self,
+        wildcard: &str,
+    ) -> impl Iterator<Item = (&'s str, RoleId)> + use<'s> {
         let upper = wildcard.to_uppercase();
         self.courses
             .values()
@@ -88,15 +91,18 @@ impl MiEI {
             .filter(move |(n, _r)| n.starts_with(&upper))
     }
 
-    pub fn roles_by_year(&self, year: &str) -> Option<impl Iterator<Item = (&str, RoleId)>> {
+    pub fn roles_by_year<'s>(
+        &'s self,
+        year: &str,
+    ) -> Option<impl Iterator<Item = (&'s str, RoleId)> + use<'s>> {
         self.courses.get(year).map(Year::all_roles)
     }
 
-    pub fn roles_by_year_and_semester(
-        &self,
+    pub fn roles_by_year_and_semester<'s>(
+        &'s self,
         year: &str,
         semester: &str,
-    ) -> Option<impl Iterator<Item = (&str, RoleId)> + '_> {
+    ) -> Option<impl Iterator<Item = (&'s str, RoleId)> + use<'s>> {
         self.courses
             .get(year)
             .and_then(|y| y.roles_by_semester(semester))
@@ -265,7 +271,8 @@ impl MiEI {
     fn get_year_semester_names(&self, role_name: &str) -> Option<(String, String)> {
         let upper_role_name = role_name.to_uppercase();
         self.courses.iter().find_map(|(key, x)| {
-            x.get_semester_name(&upper_role_name).map(|sem| (key.clone(), sem))
+            x.get_semester_name(&upper_role_name)
+                .map(|sem| (key.clone(), sem))
         })
     }
 
@@ -273,7 +280,7 @@ impl MiEI {
         self.courses.values().any(|x| x.role_exists(role_name))
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Channel> {
+    pub fn iter(&'_ self) -> impl Iterator<Item = Channel<'_>> {
         self.courses.iter().flat_map(|(year, sems)| {
             sems.courses.iter().flat_map(move |(semester, courses)| {
                 courses.courses.keys().map(move |channel| Channel {
@@ -328,16 +335,16 @@ impl Year {
             .any(|x| x.courses.contains_key(role_name))
     }
 
-    fn all_roles(&self) -> impl Iterator<Item = (&str, RoleId)> + '_ {
+    fn all_roles(&self) -> impl Iterator<Item = (&str, RoleId)> {
         self.courses
             .values()
             .flat_map(|x| x.courses.iter().map(|(a, z)| (a.as_str(), z.role)))
     }
 
-    fn roles_by_semester(
-        &self,
+    fn roles_by_semester<'s>(
+        &'s self,
         semester: &str,
-    ) -> Option<impl Iterator<Item = (&str, RoleId)> + '_> {
+    ) -> Option<impl Iterator<Item = (&'s str, RoleId)> + use<'s>> {
         self.courses
             .get(semester)
             .map(|x| x.courses.iter().map(|(a, c)| (a.as_str(), c.role)))
@@ -349,7 +356,7 @@ impl Year {
 
     fn get_semester_name(&self, role_name: &str) -> Option<String> {
         self.courses.iter().find_map(|(key, x)| {
-            if x.courses.get(role_name).is_some() {
+            if x.courses.contains_key(role_name) {
                 Some(key.clone())
             } else {
                 None
