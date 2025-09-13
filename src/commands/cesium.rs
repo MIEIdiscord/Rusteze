@@ -34,7 +34,7 @@ const CESIUM_CATEGORY: ChannelId = ChannelId::new(418798551317872660);
 pub const CESIUM_ROLE: RoleId = RoleId::new(418842665061318676);
 const MODS_ROLE: RoleId = RoleId::new(618572138718298132);
 const MENTOR_ROLE: RoleId = RoleId::new(688760837980291120);
-const CHANNELS: &str = "cesium_channels.json";
+const CHANNELS: &str = "data/cesium_channels.json";
 
 #[check]
 #[name = "is_mod_or_cesium"]
