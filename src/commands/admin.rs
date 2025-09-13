@@ -1,53 +1,30 @@
 mod channels;
-mod daemons;
 mod greeting_channels;
 mod log_channel;
 mod user_groups;
 
-use self::daemons::*;
 use super::cesium::CESIUM_ROLE;
-use crate::{
-    config::Config,
-    delayed_tasks::{Task, TaskSender},
-    get,
-    util::Endpoint,
-};
 use channels::*;
-use chrono::{DateTime, Duration, Utc};
-use futures::{
-    future::{self, TryFutureExt},
-    stream::{StreamExt, TryStreamExt},
-};
+use futures::stream::TryStreamExt;
 use greeting_channels::*;
 use log_channel::*;
-use serde::{Deserialize, Serialize};
 use serenity::{
-    all::{CreateMessage, EditMessage},
+    all::EditMessage,
     framework::standard::{
         Args, CommandResult,
         macros::{command, group},
     },
-    model::{
-        channel::Message,
-        id::{ChannelId, GuildId, RoleId, UserId},
-    },
+    model::{channel::Message, id::ChannelId},
     prelude::*,
 };
-use std::{any::Any, collections::HashSet, str};
+use std::{collections::HashSet, str};
 use user_groups::*;
 
 #[group]
-#[commands(
-    member_count,
-    edit,
-    say,
-    mute,
-    set_mute_role,
-    tomada_de_posse
-)]
+#[commands(edit, say, tomada_de_posse)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, Daemons, UserGroups)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, UserGroups)]
 struct Admin;
 
 #[command]
@@ -114,173 +91,4 @@ pub async fn edit(ctx: &Context, _msg: &Message, mut args: Args) -> CommandResul
         .edit(&ctx, EditMessage::new().content(args.rest()))
         .await?;
     Ok(())
-}
-
-#[command]
-#[description("Count the number of members with a role")]
-#[usage("#role_mention")]
-#[min_args(1)]
-pub async fn member_count(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let role = &args.single::<RoleId>()?;
-    let member_count = msg
-        .guild_id
-        .ok_or_else(|| String::from("Not in a guild"))?
-        .members_iter(&ctx)
-        .filter_map(|x| future::ready(x.ok()))
-        .filter(|m| future::ready(m.roles.contains(role)))
-        .fold(0_usize, |a, _| future::ready(a + 1))
-        .await;
-    msg.channel_id
-        .say(&ctx, format!("Role has {} members", member_count))
-        .await?;
-    Ok(())
-}
-
-#[command]
-#[description("Mute a user for 12h or the specified time")]
-#[usage("@user [time] [h|hours|m|minutes|s|seconds|d|days] [reason]")]
-#[min_args(1)]
-pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    type UnitMapper = (&'static str, fn(t: i64) -> Duration);
-    fn pick_unit(s: &str) -> Option<UnitMapper> {
-        match s {
-            "d" | "days" => Some(("days", Duration::days)),
-            "h" | "hours" | "" => Some(("hours", Duration::hours)),
-            "m" | "minutes" => Some(("minutes", Duration::minutes)),
-            "s" | "seconds" => Some(("seconds", Duration::seconds)),
-            _ => None,
-        }
-    }
-    let guild = msg.guild_id.ok_or("Not in a guild")?;
-    let user = args.single::<UserId>()?;
-    let (muted_hours, unit_str, unit, reason) = match args.single::<String>() {
-        Ok(mut a) => match a.parse::<u32>() {
-            Ok(muted_hours) => {
-                let (unit_str, unit) = match args.single::<String>() {
-                    Ok(time_spec) => pick_unit(&time_spec).ok_or("invalid time unit")?,
-                    Err(_) => ("h", Duration::hours as _),
-                };
-                (muted_hours, unit_str, unit, String::from(args.rest()))
-            }
-            Err(_) => {
-                a += " ";
-                a += args.rest();
-                (12, "h", Duration::hours as _, a)
-            }
-        },
-        Err(_) => (12, "h", Duration::hours as _, String::new()),
-    };
-    let member = guild.member(ctx, user).await?;
-    msg.channel_id
-        .say(
-            ctx,
-            format!(
-            "User {} will be muted for {} {} with reason \"{}\"\n\n**Reply with yes to proceed.**",
-                member.mention(),
-                muted_hours,
-                unit_str,
-                reason
-        ),
-        )
-        .await?;
-    let reply = msg
-        .channel_id
-        .await_reply(ctx)
-        .author_id(msg.author.id)
-        .timeout(Duration::minutes(10).to_std().unwrap());
-    let reply = match reply.await {
-        Some(m) => m,
-        None => {
-            msg.channel_id
-                .say(ctx, "No reply found in time, aborting")
-                .await?;
-            return Ok(());
-        }
-    };
-
-    if reply.content != "yes" {
-        msg.channel_id.say(ctx, "Aborting").await?;
-        return Ok(());
-    }
-
-    let mute_role = get!(ctx, Config, read)
-        .get_mute_role()
-        .ok_or("Mute role not set")?;
-    member.add_role(ctx, mute_role).await?;
-
-    let unmute_task = Box::new(Unmute {
-        when: Utc::now() + unit(muted_hours.into()),
-        guild_id: member.guild_id,
-        user_id: member.user.id,
-        role_id: mute_role,
-    });
-    if get!(ctx, TaskSender).send(unmute_task).await.is_err() {
-        msg.channel_id
-            .say(&ctx, "Failed to set unmute timeout.")
-            .await?;
-    }
-    member
-        .user
-        .dm(
-            &ctx,
-            CreateMessage::new().content(format!(
-                "You've been muted for {} {}. {}",
-                muted_hours, unit_str, reason
-            )),
-        )
-        .await?;
-    msg.channel_id.say(&ctx, "muted.").await?;
-    Ok(())
-}
-
-#[command]
-#[description("Sets the mute role")]
-#[usage("@role")]
-#[min_args(1)]
-pub async fn set_mute_role(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let role = args.single::<RoleId>()?;
-    get!(ctx, Config, write).set_mute_role(role)?;
-    msg.channel_id.say(ctx, "Mute role set").await?;
-    Ok(())
-}
-
-#[derive(Serialize, Deserialize)]
-struct Unmute {
-    when: DateTime<Utc>,
-    guild_id: GuildId,
-    user_id: UserId,
-    role_id: RoleId,
-}
-
-#[serenity::async_trait]
-#[typetag::serde]
-impl Task for Unmute {
-    fn when(&self) -> DateTime<Utc> {
-        self.when
-    }
-
-    async fn call(&mut self, user_data: &mut TypeMap) -> Result<(), Box<dyn std::error::Error>> {
-        crate::log!("Unmuting {}", self.user_id);
-        let uid = self.user_id;
-        if let Some(http) = user_data.get::<Endpoint>() {
-            self.guild_id
-                .member(http, self.user_id)
-                .and_then(|m| async move { m.remove_role(http, self.role_id).await })
-                .await?;
-            crate::log!("Umuted {}", uid);
-        }
-        Ok(())
-    }
-
-    fn is_diferent(&self, other: &dyn Any) -> bool {
-        if let Some(unmute) = other.downcast_ref::<Self>() {
-            unmute.user_id != self.user_id
-        } else {
-            true
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }

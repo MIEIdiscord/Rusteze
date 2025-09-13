@@ -1,14 +1,14 @@
 #![deny(unused_must_use)]
+#![deny(unused_crate_dependencies)]
 #![expect(deprecated)] // serenity standard framework is deprecated
+
+use tokio as _;
 
 pub mod channels;
 pub mod commands;
 pub mod config;
-pub mod daemons;
-pub mod delayed_tasks;
-pub mod util;
+mod util;
 
-pub use self::daemons::{DaemonManager, DaemonManagerKey};
 use crate::config::Config;
 use once_cell::sync::Lazy;
 use regex::Regex;
