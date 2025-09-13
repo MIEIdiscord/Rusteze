@@ -6,9 +6,10 @@ use futures::{
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use serenity::{
+    all::{Colour, CreateEmbed, CreateMessage},
     framework::standard::{
-        macros::{command, group},
         Args, CommandResult,
+        macros::{command, group},
     },
     model::{
         channel::Message,
@@ -16,7 +17,6 @@ use serenity::{
         user::User,
     },
     prelude::*,
-    utils::Colour,
 };
 use std::collections::BTreeMap;
 
@@ -370,9 +370,11 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
     let roles = get!(> trash, MiEI, read);
 
     msg.channel_id
-        .send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.title("Informação sobre as cadeiras disponíveis")
+        .send_message(
+            &ctx.http,
+            CreateMessage::new().embed(
+                CreateEmbed::new()
+                    .title("Informação sobre as cadeiras disponíveis")
                     .description(
                         "`$study CADEIRA` junta-te às salas das cadeiras.
 `$study Xano` junta-te a todas as cadeiras de um ano.",
@@ -391,10 +393,9 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                             .iter()
                             .map(|(k, v)| (k, v, true)),
                     )
-                    .colour(Colour::from_rgb(0, 0, 0))
-            });
-            m
-        })
+                    .colour(Colour::from_rgb(0, 0, 0)),
+            ),
+        )
         .await?;
 
     Ok(())

@@ -3,9 +3,10 @@ use futures::future::TryFutureExt;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serenity::{
+    all::CreateChannel,
     framework::standard::{
-        macros::{check, command, group},
         ArgError, Args, CommandOptions, CommandResult, Reason,
+        macros::{check, command, group},
     },
     http::{CacheHttp, Http},
     model::{
@@ -29,10 +30,10 @@ use std::{
 #[prefixes("cesium")]
 struct Cesium;
 
-const CESIUM_CATEGORY: ChannelId = ChannelId(418798551317872660);
-pub const CESIUM_ROLE: RoleId = RoleId(418842665061318676);
-const MODS_ROLE: RoleId = RoleId(618572138718298132);
-const MENTOR_ROLE: RoleId = RoleId(688760837980291120);
+const CESIUM_CATEGORY: ChannelId = ChannelId::new(418798551317872660);
+pub const CESIUM_ROLE: RoleId = RoleId::new(418842665061318676);
+const MODS_ROLE: RoleId = RoleId::new(618572138718298132);
+const MENTOR_ROLE: RoleId = RoleId::new(688760837980291120);
 const CHANNELS: &str = "cesium_channels.json";
 
 #[check]
@@ -123,28 +124,28 @@ impl ChannelMapping {
                 deny: Permissions::empty(),
             }))
             .chain(once(PermissionOverwrite {
-                kind: PermissionOverwriteType::Role(RoleId(guild_id.0)),
+                kind: PermissionOverwriteType::Role(RoleId::new(guild_id.get())),
                 allow: Permissions::empty(),
                 deny: Permissions::VIEW_CHANNEL,
             }))
             .collect();
         let text = guild_id
-            .create_channel(ctx, |channel| {
-                channel
-                    .name(format!("mentor-channel-{}", self.last_number))
+            .create_channel(
+                ctx,
+                CreateChannel::new(format!("mentor-channel-{}", self.last_number))
                     .kind(ChannelType::Text)
                     .category(CESIUM_CATEGORY)
-                    .permissions(users.iter().cloned())
-            })
+                    .permissions(users.iter().cloned()),
+            )
             .await?;
         let voice = guild_id
-            .create_channel(ctx, |channel| {
-                channel
-                    .name(format!("mentor-channel-{}", self.last_number))
+            .create_channel(
+                ctx,
+                CreateChannel::new(format!("mentor-channel-{}", self.last_number))
                     .kind(ChannelType::Voice)
                     .category(CESIUM_CATEGORY)
-                    .permissions(users.into_iter())
-            })
+                    .permissions(users.into_iter()),
+            )
             .await?;
         text.say(
             &ctx,
@@ -211,7 +212,9 @@ pub async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 #[command]
-#[description("Adds a student to a private room, the room is where the command is called or passed as a second parameter")]
+#[description(
+    "Adds a student to a private room, the room is where the command is called or passed as a second parameter"
+)]
 #[usage("StudentMention [channel_mention]")]
 #[min_args(1)]
 pub async fn join(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
@@ -229,7 +232,7 @@ or mention the channel as a second parameter",
     )?;
     text.create_permission(
         &ctx,
-        &PermissionOverwrite {
+        PermissionOverwrite {
             kind: PermissionOverwriteType::Member(user),
             allow: Permissions::VIEW_CHANNEL,
             deny: Permissions::empty(),
@@ -239,7 +242,7 @@ or mention the channel as a second parameter",
     voice
         .create_permission(
             &ctx,
-            &PermissionOverwrite {
+            PermissionOverwrite {
                 kind: PermissionOverwriteType::Member(user),
                 allow: Permissions::VIEW_CHANNEL,
                 deny: Permissions::empty(),

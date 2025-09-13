@@ -1,8 +1,9 @@
 use crate::{config::Config, get};
 use serenity::{
+    all::{CreateEmbed, CreateMessage},
     framework::standard::{
+        Args, CommandError, CommandResult,
         macros::{command, group},
-        Args, CommandResult, CommandError,
     },
     model::{
         channel::Message,
@@ -27,7 +28,7 @@ pub async fn join(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         None => return Err("No such role".into()),
     };
     if get!(ctx, Config, read).user_group_exists(role) {
-        let mut member = msg.member(&ctx).await?;
+        let member = msg.member(&ctx).await?;
         if !member.roles.contains(&role) {
             member.add_role(&ctx, role).await?;
             msg.channel_id.say(&ctx, "User group added").await?;
@@ -52,7 +53,7 @@ pub async fn leave(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         None => return Err("No such role".into()),
     };
     if get!(ctx, Config, read).user_group_exists(role) {
-        let mut member = msg.member(&ctx).await?;
+        let member = msg.member(&ctx).await?;
         if member.roles.contains(&role) {
             member.remove_role(&ctx, role).await?;
             msg.channel_id.say(&ctx, "User group removed").await?;
@@ -78,9 +79,11 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
         .to_partial_guild(&ctx)
         .await?;
     msg.channel_id
-        .send_message(&ctx, |m| {
-            m.embed(|e| {
-                e.title("User groups")
+        .send_message(
+            &ctx,
+            CreateMessage::new().embed(
+                CreateEmbed::new()
+                    .title("User groups")
                     .description(
                         "`$usermod -a Role` adiciona te a um user group
 `$usermod -d Role` remove te de um user group",
@@ -90,9 +93,9 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                             .user_groups()
                             .filter_map(|(r, d)| guild.roles.get(r).map(|r| (&r.name, d)))
                             .map(|(r, d)| (r, d, true)),
-                    )
-            })
-        })
+                    ),
+            ),
+        )
         .await?;
     Ok(())
 }

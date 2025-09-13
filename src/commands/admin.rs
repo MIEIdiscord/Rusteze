@@ -26,6 +26,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::{
+    all::{CreateMessage, EditMessage},
     framework::standard::{
         Args, CommandResult,
         macros::{command, group},
@@ -118,7 +119,7 @@ pub async fn tomada_de_posse(ctx: &Context, msg: &Message, args: Args) -> Comman
 
     guild_id
         .members_iter(ctx)
-        .try_for_each(|mut m| async move {
+        .try_for_each(|m| async move {
             match (
                 m.roles.contains(&CESIUM_ROLE),
                 users.contains(m.user.name.as_str()),
@@ -161,7 +162,9 @@ pub async fn edit(ctx: &Context, _msg: &Message, mut args: Args) -> CommandResul
     let channel_id = args.single::<ChannelId>()?;
     let msg_id = args.single::<u64>()?;
     let mut message = channel_id.message(&ctx.http, msg_id).await?;
-    message.edit(&ctx, |c| c.content(args.rest())).await?;
+    message
+        .edit(&ctx, EditMessage::new().content(args.rest()))
+        .await?;
     Ok(())
 }
 
@@ -219,7 +222,7 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
         },
         Err(_) => (12, "h", Duration::hours as _, String::new()),
     };
-    let mut member = guild.member(ctx, user).await?;
+    let member = guild.member(ctx, user).await?;
     msg.channel_id
         .say(
             ctx,
@@ -270,12 +273,13 @@ pub async fn mute(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     }
     member
         .user
-        .dm(&ctx, |m| {
-            m.content(format!(
+        .dm(
+            &ctx,
+            CreateMessage::new().content(format!(
                 "You've been muted for {} {}. {}",
                 muted_hours, unit_str, reason
-            ))
-        })
+            )),
+        )
         .await?;
     msg.channel_id.say(&ctx, "muted.").await?;
     Ok(())
@@ -313,7 +317,7 @@ impl Task for Unmute {
         if let Some(http) = user_data.get::<Endpoint>() {
             self.guild_id
                 .member(http, self.user_id)
-                .and_then(|mut m| async move { m.remove_role(http, self.role_id).await })
+                .and_then(|m| async move { m.remove_role(http, self.role_id).await })
                 .await?;
             crate::log!("Umuted {}", uid);
         }
