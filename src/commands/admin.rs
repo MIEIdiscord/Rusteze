@@ -2,7 +2,6 @@ mod channels;
 mod daemons;
 mod greeting_channels;
 mod log_channel;
-mod minecraft;
 mod user_groups;
 
 use self::daemons::*;
@@ -21,9 +20,6 @@ use futures::{
 };
 use greeting_channels::*;
 use log_channel::*;
-use minecraft::*;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serenity::{
     all::{CreateMessage, EditMessage},
@@ -37,7 +33,7 @@ use serenity::{
     },
     prelude::*,
 };
-use std::{any::Any, collections::HashSet, process::Command as Fork, str};
+use std::{any::Any, collections::HashSet, str};
 use user_groups::*;
 
 #[group]
@@ -45,62 +41,14 @@ use user_groups::*;
     member_count,
     edit,
     say,
-    whitelist,
     mute,
     set_mute_role,
     tomada_de_posse
 )]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, Minecraft, Daemons, UserGroups)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, Daemons, UserGroups)]
 struct Admin;
-
-#[command]
-#[description("Whitelists a player in the minecraft server")]
-#[usage("name")]
-#[usage("name uuid")]
-#[aliases("wl")]
-#[min_args(1)]
-pub async fn whitelist(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    static UUID: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(
-            r"(?x)^
-            [A-Za-z0-9]{8}-
-            [A-Za-z0-9]{4}-
-            [A-Za-z0-9]{4}-
-            [A-Za-z0-9]{4}-
-            [A-Za-z0-9]{12}
-            $",
-        )
-        .unwrap()
-    });
-    let mut args = args.raw();
-    let name = args.next().expect("Min args 1");
-    let fork_args = match args.next() {
-        Some(uuid) if UUID.is_match(uuid) => vec![name, uuid],
-        Some(_) => return Err("Invalid uuid".into()),
-        None => vec![name],
-    };
-    let output = Fork::new("./whitelist.sh").args(fork_args).output()?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    if output.status.success() {
-        crate::log!(
-            "WHITELIST COMMAND LOG:\nSTDOUT:\n{}\nSTDERR:\n{}",
-            stdout,
-            stderr
-        );
-        msg.channel_id
-            .say(&ctx, "Whitelist changed and reloaded!")
-            .await?;
-        Ok(())
-    } else {
-        msg.channel_id.say(&ctx, "Whitelist change failed:").await?;
-        let mut stdout = stdout;
-        stdout += stderr;
-        Err(stdout.into())
-    }
-}
 
 #[command]
 #[description("Sets the users that are now cesium")]

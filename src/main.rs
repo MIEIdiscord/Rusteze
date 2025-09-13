@@ -5,7 +5,6 @@ use rusteze::{
     channels::{MiEI, read_courses},
     commands::{admin::*, cesium::*, misc::*, study::*, usermod::*},
     config::Config,
-    daemons::minecraft::Minecraft,
     delayed_tasks::TaskSender,
     util::Endpoint,
     *,
@@ -53,15 +52,6 @@ async fn main() {
         client_builder = client_builder.type_map_insert::<UpdateNotify>(Arc::new(id))
     }
     let mut client = client_builder.await.expect("failed to start client");
-    if util::minecraft_server_get(["list"]).is_ok() {
-        log!("Initializing minecraft daemon");
-        let mc = Arc::new(Mutex::new(Minecraft::load().unwrap_or_default()));
-        let mut data = client.data.write().await;
-        data.insert::<Minecraft>(Arc::clone(&mc));
-        let mut dt = DaemonManager::spawn(Arc::new((client.cache.clone(), client.http.clone())));
-        dt.add_daemon(mc).await;
-        data.insert::<DaemonManagerKey>(Arc::new(Mutex::new(dt)));
-    }
     {
         let mut tasks_data = TypeMap::new();
         tasks_data.insert::<Endpoint>(Endpoint::from(&(client.cache.clone(), client.http.clone())));
