@@ -27,6 +27,8 @@ pub struct Config {
     user_groups: HashMap<RoleId, String>,
     #[serde(default)]
     mute_role: Option<RoleId>,
+    #[serde(default)]
+    spam_detection: bool,
 }
 
 const CONFIG: &str = "data/config.json";
@@ -118,6 +120,15 @@ impl Config {
 
     pub fn set_mute_role(&mut self, rl: RoleId) -> Result<(), Error> {
         self.mute_role = Some(rl);
+        Config::serialize(self)
+    }
+
+    pub fn spam_detection(&self) -> bool {
+        self.spam_detection
+    }
+
+    pub fn set_spam_detection(&mut self, enabled: bool) -> Result<(), Error> {
+        self.spam_detection = enabled;
         Config::serialize(self)
     }
 }

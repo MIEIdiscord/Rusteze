@@ -1,6 +1,7 @@
 mod channels;
 mod greeting_channels;
 mod log_channel;
+mod spam;
 mod user_groups;
 
 use super::cesium::CESIUM_ROLE;
@@ -8,6 +9,7 @@ use channels::*;
 use futures::stream::TryStreamExt;
 use greeting_channels::*;
 use log_channel::*;
+use spam::*;
 use serenity::{
     all::EditMessage,
     framework::standard::{
@@ -24,7 +26,7 @@ use user_groups::*;
 #[commands(edit, say, tomada_de_posse)]
 #[required_permissions(ADMINISTRATOR)]
 #[prefixes("sudo")]
-#[sub_groups(Channels, GreetingChannels, LogChannel, UserGroups)]
+#[sub_groups(Channels, GreetingChannels, LogChannel, Spam, UserGroups)]
 struct Admin;
 
 #[command]

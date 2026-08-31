@@ -5,6 +5,7 @@ use rusteze::{
     channels::{MiEI, read_courses},
     commands::{admin::*, cesium::*, misc::*, study::*, usermod::*},
     config::Config,
+    spam::SpamTracker,
     *,
 };
 use serenity::{all::standard::Configuration, framework::standard::StandardFramework, prelude::*};
@@ -27,6 +28,7 @@ async fn main() {
         .type_map_insert::<ChannelMapping>(Arc::new(RwLock::new(
             ChannelMapping::load().unwrap_or_default(),
         )))
+        .type_map_insert::<SpamTracker>(Arc::new(RwLock::new(SpamTracker::default())))
         .framework({
             let framework = StandardFramework::new();
             framework.configure(Configuration::new().prefix("$"));

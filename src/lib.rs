@@ -7,13 +7,18 @@ use tokio as _;
 pub mod channels;
 pub mod commands;
 pub mod config;
+pub mod spam;
 mod util;
 
 use crate::config::Config;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serenity::{
-    all::{ActivityData, Colour, CreateEmbed, CreateEmbedFooter, CreateMessage},
+    all::{
+        ActivityData, ButtonStyle, Colour, CreateActionRow, CreateButton, CreateEmbed,
+        CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
+        CreateMessage, Interaction,
+    },
     framework::standard::{
         Args, CommandGroup, CommandResult, DispatchError, HelpOptions, help_commands,
         macros::{help, hook},
@@ -185,7 +190,233 @@ impl EventHandler for Handler {
                 }
             }
         }
+
+        handle_spam(&ctx, &msg).await;
     }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        let Interaction::Component(component) = interaction else {
+            return;
+        };
+
+        let Some((action, user_part)) = component.data.custom_id.split_once(':') else {
+            return;
+        };
+        if action != "spam_kick" && action != "spam_ignore" {
+            return;
+        }
+        let Ok(user_id) = user_part.parse::<u64>().map(UserId::new) else {
+            return;
+        };
+
+        // Only moderators (kick permission) may act on the alert.
+        let allowed = component
+            .member
+            .as_ref()
+            .and_then(|m| m.permissions)
+            .map(|p| p.kick_members() || p.administrator())
+            .unwrap_or(false);
+        if !allowed {
+            respond_ephemeral(
+                &ctx,
+                &component,
+                "You don't have permission to do that.",
+            )
+            .await;
+            return;
+        }
+
+        let Some(guild_id) = component.guild_id else {
+            return;
+        };
+
+        if action == "spam_ignore" {
+            get!(ctx, spam::SpamTracker, write).take_pending(user_id);
+            update_alert(
+                &ctx,
+                &component,
+                format!("Dismissed by {}.", component.user.name),
+            )
+            .await;
+            return;
+        }
+
+        // action == "spam_kick"
+        let messages = get!(ctx, spam::SpamTracker, write)
+            .take_pending(user_id)
+            .unwrap_or_default();
+
+        let mut deleted = 0usize;
+        for (channel, message) in &messages {
+            if channel.delete_message(&ctx.http, message).await.is_ok() {
+                deleted += 1;
+            }
+        }
+
+        // Warn the user (in European Portuguese) before kicking, while we still
+        // share a guild with them and the DM is likely to go through.
+        if let Ok(user) = user_id.to_user(&ctx).await {
+            user.direct_message(
+                &ctx,
+                CreateMessage::new().content(
+                    "Olá! Foste expulso(a) do servidor porque detetámos que a tua conta \
+                     poderá ter sido comprometida e esteve a enviar spam.\n\n\
+                     Por precaução, altera imediatamente a tua palavra-passe do Discord e \
+                     ativa a autenticação de dois fatores. Depois de protegeres a tua conta, \
+                     podes voltar a juntar-te ao servidor.",
+                ),
+            )
+            .await
+            .map_err(|e| log!("Couldn't DM kicked spammer {}: {:?}", user_id.get(), e))
+            .ok();
+        }
+
+        let status = match guild_id
+            .kick_with_reason(
+                &ctx.http,
+                user_id,
+                "Automated spam detection - confirmed by a moderator",
+            )
+            .await
+        {
+            Ok(()) => format!(
+                "Kicked <@{}> and deleted {} spam message(s). Action by {}.",
+                user_id.get(),
+                deleted,
+                component.user.name
+            ),
+            Err(e) => {
+                log!("Failed to kick spammer {}: {:?}", user_id.get(), e);
+                format!(
+                    "Deleted {} spam message(s) but failed to kick <@{}>: {}",
+                    deleted,
+                    user_id.get(),
+                    e
+                )
+            }
+        };
+
+        update_alert(&ctx, &component, status).await;
+    }
+}
+
+/// Detects cross-channel image spam and posts a moderator alert with a
+/// confirmation button to the configured log channel.
+async fn handle_spam(ctx: &Context, msg: &Message) {
+    if msg.author.bot || msg.guild_id.is_none() {
+        return;
+    }
+
+    let Some(signature) = spam::image_signature(msg) else {
+        return;
+    };
+
+    let (enabled, log_channel) = {
+        let share_map = ctx.data.read().await;
+        let config = get!(> share_map, Config, read);
+        (config.spam_detection(), config.log_channel())
+    };
+    if !enabled {
+        return;
+    }
+
+    let outcome =
+        get!(ctx, spam::SpamTracker, write).record(msg.author.id, msg.channel_id, msg.id, signature);
+
+    let spam::SpamOutcome::Detected {
+        channels,
+        message_count,
+    } = outcome
+    else {
+        return;
+    };
+
+    let Some(ch) = log_channel else {
+        log!(
+            "Spam detected from {} but no log channel is configured",
+            msg.author.name
+        );
+        return;
+    };
+
+    let channel_list = channels
+        .iter()
+        .map(|c| c.mention().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let mut embed = CreateEmbed::new()
+        .title("Possible spam detected")
+        .description(format!(
+            "**User:** {} ({})\n**Same image posted in {} channels** ({} messages) within {} seconds.\n**Channels:** {}",
+            msg.author.mention(),
+            msg.author.name,
+            channels.len(),
+            message_count,
+            spam::SPAM_WINDOW.as_secs(),
+            channel_list,
+        ))
+        .colour(Colour::from_rgb(220, 20, 20));
+    if let Some(url) = spam::first_image_url(msg) {
+        embed = embed.thumbnail(url);
+    }
+
+    let buttons = CreateActionRow::Buttons(vec![
+        CreateButton::new(format!("spam_kick:{}", msg.author.id.get()))
+            .label("Kick & delete spam")
+            .style(ButtonStyle::Danger),
+        CreateButton::new(format!("spam_ignore:{}", msg.author.id.get()))
+            .label("Ignore")
+            .style(ButtonStyle::Secondary),
+    ]);
+
+    ch.send_message(
+        ctx,
+        CreateMessage::new().embed(embed).components(vec![buttons]),
+    )
+    .await
+    .map_err(|e| log!("Couldn't send spam alert: {:?}", e))
+    .ok();
+}
+
+/// Replaces the alert's buttons with a status line describing the taken action.
+async fn update_alert(
+    ctx: &Context,
+    component: &serenity::all::ComponentInteraction,
+    status: String,
+) {
+    component
+        .create_response(
+            ctx,
+            CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new()
+                    .content(status)
+                    .components(vec![]),
+            ),
+        )
+        .await
+        .map_err(|e| log!("Couldn't update spam alert: {:?}", e))
+        .ok();
+}
+
+/// Sends a private (ephemeral) response to the interacting user.
+async fn respond_ephemeral(
+    ctx: &Context,
+    component: &serenity::all::ComponentInteraction,
+    content: &str,
+) {
+    component
+        .create_response(
+            ctx,
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content(content)
+                    .ephemeral(true),
+            ),
+        )
+        .await
+        .map_err(|e| log!("Couldn't respond to interaction: {:?}", e))
+        .ok();
 }
 
 #[help("man")]
