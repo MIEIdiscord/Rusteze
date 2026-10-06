@@ -9,7 +9,6 @@ use channels::*;
 use futures::stream::TryStreamExt;
 use greeting_channels::*;
 use log_channel::*;
-use spam::*;
 use serenity::{
     all::EditMessage,
     framework::standard::{
@@ -19,6 +18,7 @@ use serenity::{
     model::{channel::Message, id::ChannelId},
     prelude::*,
 };
+use spam::*;
 use std::{collections::HashSet, str};
 use user_groups::*;
 

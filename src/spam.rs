@@ -102,7 +102,13 @@ impl SpamTracker {
             let messages: Vec<(ChannelId, MessageId)> =
                 matching.iter().map(|p| (p.channel, p.message)).collect();
             let message_count = messages.len();
-            self.pending.insert(user, Pending { messages, when: now });
+            self.pending.insert(
+                user,
+                Pending {
+                    messages,
+                    when: now,
+                },
+            );
             self.recent.remove(&user);
             SpamOutcome::Detected {
                 channels,

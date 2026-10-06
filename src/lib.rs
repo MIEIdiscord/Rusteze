@@ -217,12 +217,7 @@ impl EventHandler for Handler {
             .map(|p| p.kick_members() || p.administrator())
             .unwrap_or(false);
         if !allowed {
-            respond_ephemeral(
-                &ctx,
-                &component,
-                "You don't have permission to do that.",
-            )
-            .await;
+            respond_ephemeral(&ctx, &component, "You don't have permission to do that.").await;
             return;
         }
 
@@ -328,8 +323,12 @@ async fn handle_spam(ctx: &Context, msg: &Message) {
         return;
     }
 
-    let outcome =
-        get!(ctx, spam::SpamTracker, write).record(msg.author.id, msg.channel_id, msg.id, signature);
+    let outcome = get!(ctx, spam::SpamTracker, write).record(
+        msg.author.id,
+        msg.channel_id,
+        msg.id,
+        signature,
+    );
 
     let spam::SpamOutcome::Detected {
         channels,

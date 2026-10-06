@@ -1,8 +1,8 @@
 use crate::{config::Config, get};
 use serenity::{
     framework::standard::{
-        macros::{command, group},
         Args, CommandResult,
+        macros::{command, group},
     },
     model::channel::Message,
     prelude::*,
