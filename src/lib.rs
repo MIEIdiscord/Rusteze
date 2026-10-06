@@ -17,7 +17,7 @@ use serenity::{
     all::{
         ActivityData, ButtonStyle, Colour, CreateActionRow, CreateButton, CreateEmbed,
         CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage,
-        CreateMessage, Interaction,
+        CreateMessage, EditInteractionResponse, Interaction,
     },
     framework::standard::{
         Args, CommandGroup, CommandResult, DispatchError, HelpOptions, help_commands,
@@ -230,6 +230,14 @@ impl EventHandler for Handler {
             return;
         };
 
+        // Acknowledge immediately: deleting messages, DMing and kicking can take
+        // longer than Discord's 3 second interaction deadline. Deferring keeps
+        // the original alert message and lets us edit it once the work is done.
+        if let Err(e) = component.defer(&ctx).await {
+            log!("Couldn't defer spam interaction: {:?}", e);
+            return;
+        }
+
         if action == "spam_ignore" {
             get!(ctx, spam::SpamTracker, write).take_pending(user_id);
             update_alert(
@@ -348,9 +356,9 @@ async fn handle_spam(ctx: &Context, msg: &Message) {
     let mut embed = CreateEmbed::new()
         .title("Possible spam detected")
         .description(format!(
-            "**User:** {} ({})\n**Same image posted in {} channels** ({} messages) within {} seconds.\n**Channels:** {}",
-            msg.author.mention(),
+            "**User:** {} (`{}`)\n**Same image posted in {} channels** ({} messages) within {} seconds.\n**Channels:** {}",
             msg.author.name,
+            msg.author.id.get(),
             channels.len(),
             message_count,
             spam::SPAM_WINDOW.as_secs(),
@@ -380,19 +388,18 @@ async fn handle_spam(ctx: &Context, msg: &Message) {
 }
 
 /// Replaces the alert's buttons with a status line describing the taken action.
+/// Must be called after the interaction has been deferred.
 async fn update_alert(
     ctx: &Context,
     component: &serenity::all::ComponentInteraction,
     status: String,
 ) {
     component
-        .create_response(
+        .edit_response(
             ctx,
-            CreateInteractionResponse::UpdateMessage(
-                CreateInteractionResponseMessage::new()
-                    .content(status)
-                    .components(vec![]),
-            ),
+            EditInteractionResponse::new()
+                .content(status)
+                .components(vec![]),
         )
         .await
         .map_err(|e| log!("Couldn't update spam alert: {:?}", e))
